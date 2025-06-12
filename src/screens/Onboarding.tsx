@@ -229,13 +229,13 @@ export default function Onboarding({ navigation }: Props) {
             </View>
 
             {/* Footer */}
-            {/* <View style={styles.footer}>
+            <View style={styles.footer}>
               <View style={styles.footerDots}>
                 {[...Array(3)].map((_, i) => (
                   <View key={i} style={styles.footerDot} />
                 ))}
               </View>
-            </View> */}
+            </View>
           </Animated.View>
         </SafeAreaView>
       </LinearGradient>
@@ -371,6 +371,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(19, 10, 98, 0.3)',
   },
 });
