@@ -288,3 +288,220 @@ using (
    FROM room_participants
   WHERE ((room_participants.room_id = rooms.id) AND (room_participants.user_id = auth.uid()) AND (room_participants.is_active = true)))))
 );
+
+
+
+
+
+
+
+
+AFTER ENCYPTION ----------------------
+-- Add missing encryption fields to messages table
+ALTER TABLE public.messages 
+ADD COLUMN IF NOT EXISTS iv TEXT,
+ADD COLUMN IF NOT EXISTS sender_public_key TEXT,
+ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE;
+
+-- Create table for managing room keys (for key exchange)
+CREATE TABLE IF NOT EXISTS public.room_keys (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    participant_public_key TEXT NOT NULL,
+    encrypted_room_key TEXT NOT NULL,
+    shared_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(room_id, participant_public_key)
+) TABLESPACE pg_default;
+
+-- Enable RLS for room_keys
+ALTER TABLE public.room_keys ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for room_keys
+CREATE POLICY "Users can read their room keys" ON public.room_keys
+    FOR SELECT
+    TO public
+    USING (
+        EXISTS (
+            SELECT 1 FROM rooms r
+            WHERE r.id = room_keys.room_id
+            AND (r.user1_id = auth.uid() OR r.user2_id = auth.uid())
+        ) OR EXISTS (
+            SELECT 1 FROM room_participants rp
+            WHERE rp.room_id = room_keys.room_id
+            AND rp.user_id = auth.uid()
+            AND rp.is_active = true
+        )
+    );
+
+CREATE POLICY "Users can share room keys" ON public.room_keys
+    FOR INSERT
+    TO public
+    WITH CHECK (
+        shared_by = auth.uid() AND (
+            EXISTS (
+                SELECT 1 FROM rooms r
+                WHERE r.id = room_keys.room_id
+                AND (r.user1_id = auth.uid() OR r.user2_id = auth.uid())
+            ) OR EXISTS (
+                SELECT 1 FROM room_participants rp
+                WHERE rp.room_id = room_keys.room_id
+                AND rp.user_id = auth.uid()
+                AND rp.is_active = true
+            )
+        )
+    );
+
+CREATE POLICY "Users can update their shared keys" ON public.room_keys
+    FOR UPDATE
+    TO public
+    USING (shared_by = auth.uid())
+    WITH CHECK (shared_by = auth.uid());
+
+CREATE POLICY "Users can delete their shared keys" ON public.room_keys
+    FOR DELETE
+    TO public
+    USING (shared_by = auth.uid());
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_room_keys_room_participant ON public.room_keys(room_id, participant_public_key) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_room_keys_shared_by ON public.room_keys(shared_by) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_messages_encrypted ON public.messages(room_id, is_encrypted) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_messages_sender_public_key ON public.messages(sender_public_key) TABLESPACE pg_default;
+
+-- Function to cleanup old room keys when room ends
+CREATE OR REPLACE FUNCTION cleanup_room_keys()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status = 'ended' AND OLD.status != 'ended' THEN
+        DELETE FROM room_keys WHERE room_id = NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to cleanup room keys when room ends
+DROP TRIGGER IF EXISTS trigger_cleanup_room_keys ON public.rooms;
+CREATE TRIGGER trigger_cleanup_room_keys
+    AFTER UPDATE ON public.rooms
+    FOR EACH ROW
+    EXECUTE FUNCTION cleanup_room_keys();
+
+-- Update existing message policies to handle encrypted messages
+-- First, let's create a new policy specifically for encrypted message handling
+CREATE POLICY "Users can send encrypted messages to their rooms" ON public.messages
+    FOR INSERT
+    TO public
+    WITH CHECK (
+        sender_id = auth.uid() AND (
+            EXISTS (
+                SELECT 1 FROM rooms r
+                WHERE r.id = messages.room_id 
+                AND (r.user1_id = auth.uid() OR r.user2_id = auth.uid()) 
+                AND r.status = 'active'
+            ) OR EXISTS (
+                SELECT 1 FROM room_participants rp
+                WHERE rp.room_id = messages.room_id 
+                AND rp.user_id = auth.uid() 
+                AND rp.is_active = true
+            )
+        )
+    );
+
+-- Create a view for encrypted message metadata (admin purposes)
+CREATE OR REPLACE VIEW public.admin_messages_view AS
+SELECT 
+    m.id,
+    m.room_id,
+    m.sender_id,
+    CASE 
+        WHEN m.is_encrypted THEN '[ENCRYPTED MESSAGE]'
+        ELSE m.content
+    END AS display_content,
+    m.created_at,
+    m.is_encrypted,
+    CASE 
+        WHEN m.is_encrypted THEN 'AES-256-GCM'
+        ELSE 'NONE'
+    END AS encryption_type,
+    LENGTH(m.encrypted_content) as encrypted_size,
+    m.sender_public_key IS NOT NULL as has_sender_key
+FROM messages m;
+
+-- Function to get room encryption status
+CREATE OR REPLACE FUNCTION get_room_encryption_status(room_uuid UUID)
+RETURNS TABLE (
+    room_id UUID,
+    has_encryption_keys BOOLEAN,
+    participant_count BIGINT,
+    keys_count BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        r.id as room_id,
+        EXISTS(SELECT 1 FROM room_keys rk WHERE rk.room_id = r.id) as has_encryption_keys,
+        COALESCE(participant_count.count, 0) as participant_count,
+        COALESCE(keys_count.count, 0) as keys_count
+    FROM rooms r
+    LEFT JOIN (
+        SELECT room_id, COUNT(*) as count 
+        FROM room_participants 
+        WHERE is_active = true 
+        GROUP BY room_id
+    ) participant_count ON participant_count.room_id = r.id
+    LEFT JOIN (
+        SELECT room_id, COUNT(*) as count 
+        FROM room_keys 
+        GROUP BY room_id
+    ) keys_count ON keys_count.room_id = r.id
+    WHERE r.id = room_uuid;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission on the function
+GRANT EXECUTE ON FUNCTION get_room_encryption_status(UUID) TO public;
+
+-- Add constraint to ensure encrypted messages have required fields
+ALTER TABLE public.messages 
+ADD CONSTRAINT check_encrypted_message_fields 
+CHECK (
+    (is_encrypted = false) OR 
+    (is_encrypted = true AND encrypted_content IS NOT NULL AND iv IS NOT NULL AND sender_public_key IS NOT NULL)
+);
+
+-- Add constraint to ensure non-encrypted messages don't have encryption fields populated unnecessarily
+ALTER TABLE public.messages 
+ADD CONSTRAINT check_non_encrypted_message_fields 
+CHECK (
+    (is_encrypted = true) OR 
+    (is_encrypted = false AND encrypted_content IS NULL AND iv IS NULL AND sender_public_key IS NULL)
+);
+
+-- Comments for documentation
+COMMENT ON TABLE public.room_keys IS 'Stores encrypted room keys for end-to-end encryption key exchange';
+COMMENT ON COLUMN public.messages.encrypted_content IS 'AES-256-GCM encrypted message content';
+COMMENT ON COLUMN public.messages.iv IS 'Initialization vector for AES encryption';
+COMMENT ON COLUMN public.messages.sender_public_key IS 'Public key of the message sender for key verification';
+COMMENT ON COLUMN public.messages.is_encrypted IS 'Boolean flag indicating if the message is encrypted';
+COMMENT ON COLUMN public.room_keys.encrypted_room_key IS 'Room symmetric key encrypted with participant public key';
+COMMENT ON COLUMN public.room_keys.participant_public_key IS 'Public key of the participant who can decrypt the room key';
+COMMENT ON COLUMN public.room_keys.shared_by IS 'User ID of who shared this encrypted key';
+
+-- Create function to safely delete old encrypted messages (GDPR compliance)
+CREATE OR REPLACE FUNCTION purge_old_encrypted_messages(days_old INTEGER DEFAULT 30)
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM messages 
+    WHERE is_encrypted = true 
+    AND created_at < NOW() - INTERVAL '1 day' * days_old;
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission on purge function (restrict to admin users in production)
+GRANT EXECUTE ON FUNCTION purge_old_encrypted_messages(INTEGER) TO public;

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   View,
@@ -6,11 +7,16 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Animated,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
 import { supabase } from '../lib/supabase';
 import { joinOrCreateRoom, Mood } from '../lib/room';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 type OnboardingScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -21,24 +27,74 @@ interface Props {
   navigation: OnboardingScreenNavigationProp;
 }
 
-const moods: { key: Mood; emoji: string; label: string; color: string }[] = [
-  { key: 'happy', emoji: '😊', label: 'Happy', color: '#FFD93D' },
-  { key: 'sad', emoji: '😢', label: 'Sad', color: '#6BB6FF' },
-  { key: 'excited', emoji: '🤩', label: 'Excited', color: '#FF6B6B' },
-  { key: 'anxious', emoji: '😰', label: 'Anxious', color: '#DDA0DD' },
-  { key: 'calm', emoji: '😌', label: 'Calm', color: '#98FB98' },
-  { key: 'angry', emoji: '😠', label: 'Angry', color: '#FF4500' },
+const { width, height } = Dimensions.get('window');
+
+const moods: { key: Mood; emoji: string; label: string; colors: readonly [string, string] }[] = [
+  { key: 'happy', emoji: '😊', label: 'Happy', colors: ['#FFD93D', '#FFED4E'] as const },
+  { key: 'sad', emoji: '😢', label: 'Sad', colors: ['#6BB6FF', '#9DCEFF'] as const },
+  { key: 'excited', emoji: '🤩', label: 'Excited', colors: ['#FF6B6B', '#FF8E8E'] as const },
+  { key: 'anxious', emoji: '😰', label: 'Anxious', colors: ['#DDA0DD', '#E6B8E6'] as const },
+  { key: 'calm', emoji: '😌', label: 'Calm', colors: ['#98FB98', '#B8FFB8'] as const },
+  { key: 'angry', emoji: '😠', label: 'Angry', colors: ['#FF4500', '#FF6B2B'] as const },
 ];
 
 export default function Onboarding({ navigation }: Props) {
   const [loading, setLoading] = React.useState(false);
   const [selectedMood, setSelectedMood] = React.useState<Mood | null>(null);
+  const scaleAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const moodAnimations = React.useRef(
+    moods.map(() => new Animated.Value(0))
+  ).current;
+
+  React.useEffect(() => {
+    // Entrance animations
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Staggered mood button animations
+    const staggerDelay = 100;
+    moodAnimations.forEach((anim, index) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 600,
+        delay: 400 + index * staggerDelay,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, []);
 
   const handleMoodSelection = async (mood: Mood) => {
     if (loading) return;
     
     setLoading(true);
     setSelectedMood(mood);
+    
+    // Button press animation
+    const moodIndex = moods.findIndex(m => m.key === mood);
+    Animated.sequence([
+      Animated.timing(moodAnimations[moodIndex], {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(moodAnimations[moodIndex], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
     
     try {
       console.log(`Selected mood: ${mood}`);
@@ -85,94 +141,236 @@ export default function Onboarding({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>AnonTalk</Text>
-        <Text style={styles.subtitle}>How are you feeling today?</Text>
-        
-        <View style={styles.moodGrid}>
-          {moods.map((mood) => (
-            <TouchableOpacity
-              key={mood.key}
-              style={[
-                styles.moodButton, 
-                { backgroundColor: mood.color },
-                loading && selectedMood === mood.key && styles.selectedMood
-              ]}
-              onPress={() => handleMoodSelection(mood.key)}
-              disabled={loading}
-            >
-              <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-              <Text style={styles.moodLabel}>
-                {loading && selectedMood === mood.key ? 'Connecting...' : mood.label}
+    <>
+      <StatusBar barStyle="light-content" />
+      <LinearGradient
+        colors={['#0F0F23', '#1A1A2E', '#16213E']}
+        style={styles.container}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <Animated.View 
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            {/* Header Section */}
+            <View style={styles.header}>
+              <Text style={styles.title}>AnonTalk</Text>
+              <View style={styles.titleUnderline} />
+              <Text style={styles.subtitle}>How are you feeling today?</Text>
+              <Text style={styles.description}>
+                Connect with someone who understands your vibe ✨
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        
-        <Text style={styles.description}>
-          Select your mood to connect with someone feeling the same way
-        </Text>
-      </View>
-    </SafeAreaView>
+            </View>
+            
+            {/* Mood Grid */}
+            <View style={styles.moodContainer}>
+              <View style={styles.moodGrid}>
+                {moods.map((mood, index) => (
+                  <Animated.View
+                    key={mood.key}
+                    style={[
+                      styles.moodButtonContainer,
+                      {
+                        opacity: moodAnimations[index],
+                        transform: [
+                          {
+                            translateY: moodAnimations[index].interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [50, 0],
+                            }),
+                          },
+                          {
+                            scale: moodAnimations[index],
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.moodButton,
+                        loading && selectedMood === mood.key && styles.selectedMood
+                      ]}
+                      onPress={() => handleMoodSelection(mood.key)}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                    >
+                      <BlurView intensity={20} style={styles.blurContainer}>
+                        <LinearGradient
+                          colors={mood.colors}
+                          style={styles.gradientBackground}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <View style={styles.moodContent}>
+                            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+                            <Text style={styles.moodLabel}>
+                              {loading && selectedMood === mood.key ? 'Connecting...' : mood.label}
+                            </Text>
+                            {loading && selectedMood === mood.key && (
+                              <View style={styles.loadingDots}>
+                                <View style={styles.dot} />
+                                <View style={styles.dot} />
+                                <View style={styles.dot} />
+                              </View>
+                            )}
+                          </View>
+                        </LinearGradient>
+                      </BlurView>
+                    </TouchableOpacity>
+                  </Animated.View>
+                ))}
+              </View>
+            </View>
+
+            {/* Footer */}
+            {/* <View style={styles.footer}>
+              <View style={styles.footerDots}>
+                {[...Array(3)].map((_, i) => (
+                  <View key={i} style={styles.footerDot} />
+                ))}
+              </View>
+            </View> */}
+          </Animated.View>
+        </SafeAreaView>
+      </LinearGradient>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+  },
+  safeArea: {
+    flex: 1,
   },
   content: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 24,
+  },
+  header: {
+    flex: 0.4,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 42,
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 10,
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  titleUnderline: {
+    width: 60,
+    height: 4,
+    backgroundColor: '#6C5CE7',
+    borderRadius: 2,
+    marginBottom: 16,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#ccc',
+    fontSize: 20,
+    color: '#E2E8F0',
     textAlign: 'center',
-    marginBottom: 40,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  description: {
+    fontSize: 16,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  moodContainer: {
+    flex: 0.6,
+    justifyContent: 'center',
   },
   moodGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 40,
+    paddingHorizontal: 8,
+  },
+  moodButtonContainer: {
+    width: '48%',
+    marginBottom: 16,
   },
   moodButton: {
-    width: '48%',
-    aspectRatio: 1,
-    borderRadius: 20,
-    justifyContent: 'center',
+    borderRadius: 24,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  blurContainer: {
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  gradientBackground: {
+    borderRadius: 24,
+    padding: 2,
+  },
+  moodContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 22,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    marginBottom: 15,
+    justifyContent: 'center',
+    minHeight: 120,
   },
   selectedMood: {
-    opacity: 0.7,
-    borderWidth: 2,
-    borderColor: '#fff',
+    transform: [{ scale: 0.95 }],
   },
   moodEmoji: {
-    fontSize: 40,
+    fontSize: 44,
     marginBottom: 8,
   },
   moodLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  description: {
-    fontSize: 14,
-    color: '#999',
+    fontWeight: '700',
+    color: '#2D3748',
     textAlign: 'center',
-    lineHeight: 20,
+  },
+  loadingDots: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#6C5CE7',
+  },
+  footer: {
+    flex: 0.1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 20,
+  },
+  footerDots: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  footerDot: {
+    
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
 });

@@ -44,10 +44,11 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
-  const [isUserLoaded, setIsUserLoaded] = useState(false); // ADD THIS LINE
-
+  const [isUserLoaded, setIsUserLoaded] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [roomEnded, setRoomEnded] = useState(false); // Track if room has ended
+  
   const flatListRef = useRef<FlatList>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   
@@ -57,6 +58,45 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const headerShineAnim = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
+
+  // Helper function to check if error is RLS related
+  const isRLSError = (error: any): boolean => {
+    return error?.code === '42501' || 
+           (error?.message && error.message.includes('row-level security policy'));
+  };
+
+  // Helper function to show graceful error alert
+  const showRoomEndedAlert = useCallback(() => {
+    Alert.alert(
+      '💔 Chat Session Ended',
+      'This chat session has ended or your anonymous partner has left the chat. Would you like to return to the main screen?',
+      [
+        // {
+        //   text: 'Stay & View',
+        //   style: 'cancel',
+        //   onPress: () => {
+        //     setRoomEnded(true);
+        //     setIsConnected(false);
+        //   }
+        // },
+        {
+          text: 'Leave Chat',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await leaveRoom(roomId);
+              await supabase.auth.signOut();
+              navigation.navigate('Onboarding');
+            } catch (error) {
+              console.error('Error leaving chat:', error);
+              navigation.navigate('Onboarding');
+            }
+          },
+        },
+      ],
+      { cancelable: false }
+    );
+  }, [roomId, navigation]);
 
   // Entrance animations
   useEffect(() => {
@@ -129,20 +169,20 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   }, [messages]);
 
   useEffect(() => {
-  const getCurrentUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        setIsUserLoaded(true); // ADD THIS LINE
-        console.log('Current user ID:', user.id);
+    const getCurrentUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          setIsUserLoaded(true);
+          console.log('Current user ID:', user.id);
+        }
+      } catch (error) {
+        console.error('Error getting current user:', error);
       }
-    } catch (error) {
-      console.error('Error getting current user:', error);
-    }
-  };
-  getCurrentUser();
-}, []);
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -156,6 +196,9 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 
         if (error) {
           console.error('Error loading messages:', error);
+          if (isRLSError(error)) {
+            showRoomEndedAlert();
+          }
         } else {
           console.log('Loaded messages:', data?.length || 0);
           setMessages(data || []);
@@ -215,6 +258,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
             const room = payload.new;
             if (room.status === 'ended') {
               setIsConnected(false);
+              setRoomEnded(true);
             }
           }
         )
@@ -240,7 +284,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
         channelRef.current.unsubscribe();
       }
     };
-  }, [roomId, currentUserId]);
+  }, [roomId, currentUserId, showRoomEndedAlert]);
 
   useEffect(() => {
     const pollMessages = async () => {
@@ -259,6 +303,9 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
             }
             return prevMessages;
           });
+        } else if (error && isRLSError(error) && !roomEnded) {
+          console.log('🚫 RLS error during polling, room may have ended');
+          showRoomEndedAlert();
         }
       } catch (error) {
         console.error('Error in pollMessages:', error);
@@ -267,10 +314,10 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 
     const interval = setInterval(pollMessages, 2000);
     return () => clearInterval(interval);
-  }, [roomId]);
+  }, [roomId, roomEnded, showRoomEndedAlert]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!newMessage.trim() || !currentUserId) return;
+    if (!newMessage.trim() || !currentUserId || roomEnded) return;
 
     const messageText = newMessage.trim();
     const tempId = `temp-${Date.now()}`;
@@ -301,7 +348,18 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
         .single();
 
       if (error) {
-        console.error('❌ Direct insert failed, trying sendMessage function:', error);
+        // console.error('❌ Direct insert failed:', error);
+        
+        if (isRLSError(error)) {
+          console.log('🚫 RLS error detected, showing graceful alert');
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+          setNewMessage(''); // Clear the input
+          showRoomEndedAlert();
+          return;
+        }
+        
+        // Try the sendMessage function for other errors
+        console.log('Trying sendMessage function...');
         await sendMessage(roomId, currentUserId, messageText);
       } else {
         console.log('✅ Message inserted directly:', data);
@@ -311,11 +369,23 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
       Keyboard.dismiss();
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      setNewMessage(messageText);
+      
+      if (isRLSError(error)) {
+        console.log('🚫 RLS error in catch block, showing graceful alert');
+        setNewMessage(''); // Clear the input
+        showRoomEndedAlert();
+      } else {
+        // For other errors, restore the message and show generic error
+        setNewMessage(messageText);
+        Alert.alert(
+          'Message Failed',
+          'Unable to send message. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
     }
-  }, [newMessage, currentUserId, roomId]);
+  }, [newMessage, currentUserId, roomId, roomEnded, showRoomEndedAlert]);
 
   const handleLeaveChat = useCallback(async () => {
     Alert.alert(
@@ -333,6 +403,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
               navigation.navigate('Onboarding');
             } catch (error) {
               console.error('Error leaving chat:', error);
+              navigation.navigate('Onboarding');
             }
           },
         },
@@ -367,8 +438,8 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   const moodColors = getMoodColors(mood);
   const moodEmoji = getMoodEmoji(mood);
 
-const MessageItem: React.FC<{ item: Message; index: number; currentUserId: string }> = ({ item, index, currentUserId }) => {
-      const isMyMessage = item.sender_id === currentUserId;
+  const MessageItem: React.FC<{ item: Message; index: number; currentUserId: string }> = ({ item, index, currentUserId }) => {
+    const isMyMessage = item.sender_id === currentUserId;
     const isOptimistic = item.id.startsWith('temp-');
     
     const messageAnim = useRef(new Animated.Value(0)).current;
@@ -451,8 +522,8 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
   };
 
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
-  return <MessageItem item={item} index={index} currentUserId={currentUserId} />;
-}, [currentUserId]);
+    return <MessageItem item={item} index={index} currentUserId={currentUserId} />;
+  }, [currentUserId]);
 
   const headerShine = headerShineAnim.interpolate({
     inputRange: [0, 1],
@@ -499,7 +570,7 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
                   style={[
                     styles.connectionIndicator,
                     {
-                      backgroundColor: connectionStatus === 'SUBSCRIBED' ? '#00FF88' : '#FF6B6B',
+                      backgroundColor: (connectionStatus === 'SUBSCRIBED' && !roomEnded) ? '#00FF88' : '#FF6B6B',
                       transform: [{ scale: pulseAnim }],
                     },
                   ]}
@@ -508,7 +579,7 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
               <View style={styles.moodRow}>
                 <Text style={styles.moodEmoji}>{moodEmoji}</Text>
                 <Text style={styles.headerSubtitle}>
-                  {mood} • {connectionStatus === 'SUBSCRIBED' ? 'Connected' : 'Connecting...'}
+                  {mood} • {roomEnded ? 'Session Ended' : connectionStatus === 'SUBSCRIBED' ? 'Connected' : 'Connecting...'}
                 </Text>
               </View>
             </View>
@@ -521,10 +592,12 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
             </TouchableOpacity>
           </View>
 
-          {/* Disconnected Banner */}
-          {!isConnected && (
+          {/* Disconnected/Room Ended Banner */}
+          {(!isConnected || roomEnded) && (
             <Animated.View style={[styles.disconnectedBanner, { opacity: fadeAnim }]}>
-              <Text style={styles.disconnectedText}>⚠️ Partner disconnected</Text>
+              <Text style={styles.disconnectedText}>
+                {roomEnded ? '💔 Chat session ended' : '⚠️ Partner disconnected'}
+              </Text>
               <View style={styles.disconnectedPulse} />
             </Animated.View>
           )}
@@ -559,18 +632,21 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
               <View style={styles.inputWrapper}>
                 <View style={styles.textInputContainer}>
                   <TextInput
-                    style={styles.textInput}
+                    style={[
+                      styles.textInput,
+                      roomEnded && { opacity: 0.5 }
+                    ]}
                     value={newMessage}
                     onChangeText={setNewMessage}
-                    placeholder="Type a message..."
+                    placeholder={roomEnded ? "Chat session ended..." : "Type a message..."}
                     placeholderTextColor="#888"
                     multiline
-                    editable={isConnected}
+                    editable={isConnected && !roomEnded}
                     returnKeyType="send"
                     onSubmitEditing={handleSendMessage}
                     blurOnSubmit={false}
                   />
-                  {newMessage.trim() && (
+                  {newMessage.trim() && !roomEnded && (
                     <Animated.View 
                       style={[
                         styles.typingIndicator,
@@ -586,10 +662,10 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
                   style={[
                     styles.sendButton,
                     { backgroundColor: moodColors.primary },
-                    (!isConnected || !newMessage.trim()) && styles.sendButtonDisabled
+                    (!isConnected || !newMessage.trim() || roomEnded) && styles.sendButtonDisabled
                   ]}
                   onPress={handleSendMessage}
-                  disabled={!isConnected || !newMessage.trim()}
+                  disabled={!isConnected || !newMessage.trim() || roomEnded}
                 >
                   <Text style={styles.sendButtonText}>🚀</Text>
                 </TouchableOpacity>
@@ -602,5 +678,9 @@ const MessageItem: React.FC<{ item: Message; index: number; currentUserId: strin
   );
 };
 
-
 export default Chat;
+
+
+
+
+
