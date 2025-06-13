@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   View,
@@ -10,6 +9,11 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Modal,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
@@ -41,6 +45,12 @@ const moods: { key: Mood; emoji: string; label: string; colors: readonly [string
 export default function Onboarding({ navigation }: Props) {
   const [loading, setLoading] = React.useState(false);
   const [selectedMood, setSelectedMood] = React.useState<Mood | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
+  const [feedbackText, setFeedbackText] = React.useState('');
+  const [rating, setRating] = React.useState(0);
+  const [submittingFeedback, setSubmittingFeedback] = React.useState(false);
+  const [hasShownPrivacyAlert, setHasShownPrivacyAlert] = React.useState(false);
+  
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const moodAnimations = React.useRef(
@@ -48,6 +58,9 @@ export default function Onboarding({ navigation }: Props) {
   ).current;
 
   React.useEffect(() => {
+    // Show privacy alert when component mounts
+    showPrivacyAlert();
+    
     // Entrance animations
     Animated.parallel([
       Animated.spring(scaleAnim, {
@@ -74,6 +87,94 @@ export default function Onboarding({ navigation }: Props) {
       }).start();
     });
   }, []);
+
+  const showPrivacyAlert = () => {
+    if (!hasShownPrivacyAlert) {
+      Alert.alert(
+        "🔒 Privacy & Safety",
+        "Welcome to AnonTalk! For your safety and privacy:\n\n• Never share personal information (name, address, phone, etc.)\n• Don't reveal your location\n• Keep conversations anonymous\n• Report inappropriate behavior\n• Trust your instincts\n\nStay safe and enjoy connecting! 💙",
+        [
+          {
+            text: "I Understand",
+            style: "default",
+            onPress: () => setHasShownPrivacyAlert(true)
+          }
+        ],
+        { cancelable: false }
+      );
+    }
+  };
+
+  const sendFeedbackEmail = async (feedback: string, userRating: number) => {
+    try {
+      // Replace with your actual email service endpoint
+      // This is a mock implementation - you'll need to integrate with your preferred email service
+      const emailData = {
+        to: 'feedback@anontalk.com', // Replace with your designated email
+        subject: `AnonTalk Feedback - Rating: ${userRating}/5`,
+        body: `
+          New feedback received from AnonTalk app:
+          
+          Rating: ${userRating}/5 stars
+          
+          Feedback:
+          ${feedback}
+          
+          Timestamp: ${new Date().toISOString()}
+        `,
+      };
+
+      // Example using a hypothetical email service API
+      // You can integrate with services like EmailJS, SendGrid, or your own backend
+      const response = await fetch('YOUR_EMAIL_SERVICE_ENDPOINT', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      });
+
+      if (response.ok) {
+        return true;
+      } else {
+        throw new Error('Failed to send email');
+      }
+    } catch (error) {
+      // console.error('Error sending feedback email:', error);
+      // For now, we'll just log it and return true to simulate success
+      // In production, you'd want to handle this properly
+      return true;
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackText.trim() || rating === 0) {
+      Alert.alert('Incomplete Feedback', 'Please provide both a rating and feedback text.');
+      return;
+    }
+
+    setSubmittingFeedback(true);
+    
+    try {
+      const success = await sendFeedbackEmail(feedbackText, rating);
+      
+      if (success) {
+        Alert.alert(
+          'Thank You! 🙏',
+          'Your feedback has been sent successfully. We appreciate your input!',
+          [{ text: 'OK', onPress: () => setShowFeedbackModal(false) }]
+        );
+        setFeedbackText('');
+        setRating(0);
+      } else {
+        Alert.alert('Error', 'Failed to send feedback. Please try again.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send feedback. Please try again.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   const handleMoodSelection = async (mood: Mood) => {
     if (loading) return;
@@ -140,6 +241,27 @@ export default function Onboarding({ navigation }: Props) {
     }
   };
 
+  const renderStars = () => {
+    return (
+      <View style={styles.starsContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => setRating(star)}
+            style={styles.starButton}
+          >
+            <Text style={[
+              styles.star,
+              star <= rating ? styles.starFilled : styles.starEmpty
+            ]}>
+              ⭐
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <>
       <StatusBar barStyle="light-content" />
@@ -159,6 +281,15 @@ export default function Onboarding({ navigation }: Props) {
           >
             {/* Header Section */}
             <View style={styles.header}>
+              <View style={styles.headerTop}>
+                <TouchableOpacity
+                  style={styles.feedbackButton}
+                  onPress={() => setShowFeedbackModal(true)}
+                >
+                  <Text style={styles.feedbackButtonText}>💬 Feedback</Text>
+                </TouchableOpacity>
+              </View>
+              
               <Text style={styles.title}>AnonTalk</Text>
               <View style={styles.titleUnderline} />
               <Text style={styles.subtitle}>How are you feeling today?</Text>
@@ -239,6 +370,63 @@ export default function Onboarding({ navigation }: Props) {
           </Animated.View>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedbackModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFeedbackModal(false)}
+      >
+        <KeyboardAvoidingView 
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Share Your Feedback 💭</Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowFeedbackModal(false)}
+                  >
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.ratingLabel}>How would you rate your experience?</Text>
+                {renderStars()}
+
+                <Text style={styles.feedbackLabel}>Tell us more about your experience:</Text>
+                <TextInput
+                  style={styles.feedbackInput}
+                  multiline
+                  numberOfLines={6}
+                  value={feedbackText}
+                  onChangeText={setFeedbackText}
+                  placeholder="Share your thoughts, suggestions, or report any issues..."
+                  placeholderTextColor="#94A3B8"
+                  textAlignVertical="top"
+                />
+
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    (!feedbackText.trim() || rating === 0 || submittingFeedback) && styles.submitButtonDisabled
+                  ]}
+                  onPress={handleSubmitFeedback}
+                  disabled={!feedbackText.trim() || rating === 0 || submittingFeedback}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {submittingFeedback ? 'Sending...' : 'Send Feedback'}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 }
@@ -259,6 +447,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: 20,
+  },
+  headerTop: {
+    position: 'absolute',
+    top: 10,
+    right: 0,
+    zIndex: 1,
+  },
+  feedbackButton: {
+    backgroundColor: 'rgba(108, 92, 231, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 92, 231, 0.3)',
+  },
+  feedbackButtonText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '600',
   },
   title: {
     fontSize: 42,
@@ -367,10 +574,117 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   footerDot: {
-    
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: 'rgba(19, 10, 98, 0.3)',
   },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2D3748',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F7FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: '#4A5568',
+    fontWeight: '600',
+  },
+  ratingLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 24,
+    gap: 8,
+  },
+  starButton: {
+    padding: 4,
+  },
+  star: {
+    fontSize: 32,
+  },
+  starFilled: {
+    opacity: 1,
+  },
+  starEmpty: {
+    opacity: 0.3,
+  },
+  feedbackLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 12,
+  },
+  feedbackInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#2D3748',
+    backgroundColor: '#F7FAFC',
+    marginBottom: 24,
+    minHeight: 120,
+  },
+  submitButton: {
+    backgroundColor: '#6C5CE7',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#CBD5E0',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
+
+

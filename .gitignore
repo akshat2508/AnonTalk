@@ -35,7 +35,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
+personal_notes.txt
 .env
-src/config/
+.env.production
 
