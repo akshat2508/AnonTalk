@@ -38,4 +38,4 @@ yarn-error.*
 personal_notes.txt
 .env
 .env.production
-
+backup
