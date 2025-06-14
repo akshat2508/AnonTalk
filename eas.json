@@ -6,18 +6,25 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "node": "18.18.0"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "node": "18.18.0"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "node": "18.18.0"
     },
     "apk": {
       "android": {
         "buildType": "apk"
-      }
+      },
+      "node": "18.18.0"
     }
   },
   "submit": {
