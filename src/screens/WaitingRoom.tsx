@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import {
   View,
@@ -17,6 +18,7 @@ import { RootStackParamList } from '../navigation/types';
 import { supabase } from '../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type WaitingRoomScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -57,6 +59,9 @@ export default function WaitingRoom({ navigation, route }: Props) {
   const [currentRoomId, setCurrentRoomId] = React.useState<string>('');
   const [searchStatus, setSearchStatus] = React.useState('Initializing...');
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const subscriptionRef = React.useRef<RealtimeChannel | null>(null);
+  const pollIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = React.useRef(true);
 
   // Animation values
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -143,8 +148,20 @@ export default function WaitingRoom({ navigation, route }: Props) {
     rippleAnimation.start();
 
     return () => {
+      isMountedRef.current = false;
       pulseAnimation.stop();
       rippleAnimation.stop();
+      
+      // Clean up subscriptions and intervals
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
 
@@ -160,8 +177,6 @@ export default function WaitingRoom({ navigation, route }: Props) {
 
   React.useEffect(() => {
     if (!currentUserId) return;
-
-    let subscription: any = null;
 
     const findMatchOrCreateRoom = async () => {
       try {
@@ -185,7 +200,9 @@ export default function WaitingRoom({ navigation, route }: Props) {
           if (existingRoom.status === 'active') {
             setIsWaiting(false);
             setSearchStatus('Match found! Connecting...');
-            navigation.replace('Chat', { roomId: existingRoom.id, mood });
+            if (isMountedRef.current) {
+              navigation.replace('Chat', { roomId: existingRoom.id, mood });
+            }
             return;
           }
           setupRoomListener(existingRoom.id);
@@ -214,6 +231,8 @@ export default function WaitingRoom({ navigation, route }: Props) {
         if (waitingRooms && waitingRooms.length > 0) {
           const waitingRoom = waitingRooms[0];
           setSearchStatus('Joining room...');
+          
+          // Use more specific conditions to avoid race conditions
           const { data: updatedRoom, error: updateError } = await supabase
             .from('rooms')
             .update({
@@ -224,14 +243,19 @@ export default function WaitingRoom({ navigation, route }: Props) {
             .eq('id', waitingRoom.id)
             .eq('status', 'waiting')
             .is('user2_id', null)
+            .neq('user1_id', currentUserId) // Ensure we don't join our own room
             .select()
             .maybeSingle();
 
           if (!updateError && updatedRoom) {
             setIsWaiting(false);
             setSearchStatus('Connected! Starting chat...');
-            navigation.replace('Chat', { roomId: updatedRoom.id, mood });
+            if (isMountedRef.current) {
+              navigation.replace('Chat', { roomId: updatedRoom.id, mood });
+            }
             return;
+          } else {
+            console.log('⚠️ Failed to join room, creating new one...');
           }
         }
 
@@ -265,9 +289,28 @@ export default function WaitingRoom({ navigation, route }: Props) {
     };
 
     const setupRoomListener = (roomId: string) => {
-      const channelName = `room-${roomId}-${Date.now()}`;
-      subscription = supabase
-        .channel(channelName)
+      console.log('🔗 Setting up room listener for:', roomId);
+      
+      // Clean up existing subscription
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+      
+      // Clean up existing poll interval
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      // Create unique channel name to avoid conflicts
+      const channelName = `waiting_room_${roomId}_${currentUserId}_${Date.now()}`;
+      
+      const subscription = supabase
+        .channel(channelName, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: currentUserId },
+          },
+        })
         .on(
           'postgres_changes',
           {
@@ -277,22 +320,75 @@ export default function WaitingRoom({ navigation, route }: Props) {
             filter: `id=eq.${roomId}`,
           },
           (payload) => {
+            console.log('🏠 Room update received in WaitingRoom:', payload.new);
             const updatedRoom = payload.new;
-            if (updatedRoom.status === 'active' && updatedRoom.user2_id) {
+            
+            if (updatedRoom.status === 'active' && updatedRoom.user2_id && isMountedRef.current) {
+              console.log('✅ Room became active, navigating to chat...');
               setIsWaiting(false);
               setSearchStatus('Someone joined! Starting chat...');
-              navigation.replace('Chat', { roomId: updatedRoom.id, mood });
-
-              // clear timeout once match is found
+              
+              // Clear timeout once match is found
               if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
               }
+              
+              // Navigate with a small delay to ensure state updates
+              setTimeout(() => {
+                if (isMountedRef.current) {
+                  navigation.replace('Chat', { roomId: updatedRoom.id, mood });
+                }
+              }, 500);
             }
           }
         )
-        .subscribe((status) => {
-          console.log('📡 Subscription status:', status);
+        .subscribe((status, err) => {
+          console.log('📡 WaitingRoom subscription status:', status);
+          if (err) {
+            console.error('❌ WaitingRoom subscription error:', err);
+          }
         });
+
+      subscriptionRef.current = subscription;
+
+      // Backup polling mechanism
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const { data: room, error } = await supabase
+            .from('rooms')
+            .select('*')
+            .eq('id', roomId)
+            .single();
+
+          if (error) {
+            console.error('Error polling room:', error);
+            return;
+          }
+
+          if (room?.status === 'active' && room.user2_id && isMountedRef.current) {
+            console.log('🔄 Polling detected active room, navigating...');
+            setIsWaiting(false);
+            setSearchStatus('Match found via polling! Connecting...');
+            
+            // Clear interval and timeout
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+            }
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+            }
+            
+            navigation.replace('Chat', { roomId: room.id, mood });
+          } else if (room?.status === 'ended') {
+            console.log('🔄 Polling detected ended room');
+            if (isMountedRef.current) {
+              navigation.navigate('Onboarding');
+            }
+          }
+        } catch (error) {
+          console.error('Error in room polling:', error);
+        }
+      }, 1500); // Poll every 1.5 seconds as backup
     };
 
     findMatchOrCreateRoom();
@@ -303,7 +399,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
     console.log(`⏳ Timeout set for ${timeoutMinutes} minute(s)`);
 
     timeoutRef.current = setTimeout(() => {
-      if (isWaiting) {
+      if (isWaiting && isMountedRef.current) {
         console.log('⏱️ Timeout reached. Cancelling room.');
         Alert.alert(
           'No match found',
@@ -319,17 +415,27 @@ export default function WaitingRoom({ navigation, route }: Props) {
     }, timeoutDuration);
 
     return () => {
-      if (subscription) subscription.unsubscribe();
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      // Cleanup function
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
-  }, [currentUserId, mood, navigation]);
+  }, [currentUserId, mood, navigation, isWaiting]);
 
   const handleCancel = async () => {
     try {
-      if (currentUserId) {
+      if (currentUserId && currentRoomId) {
+        // Delete the room if we're user1 and it's still waiting
         await supabase
           .from('rooms')
           .delete()
+          .eq('id', currentRoomId)
           .eq('user1_id', currentUserId)
           .eq('status', 'waiting');
       }
@@ -508,6 +614,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
   );
 }
 
+// You'll need to add these styles to your existing styles object
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -517,8 +624,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
-    padding: 24,
+    paddingHorizontal: 20,
   },
   backgroundElements: {
     position: 'absolute',
@@ -526,11 +632,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   ripple1: {
     position: 'absolute',
+    top: height * 0.2,
+    left: width * 0.1,
     width: 200,
     height: 200,
     borderRadius: 100,
@@ -538,6 +644,8 @@ const styles = StyleSheet.create({
   },
   ripple2: {
     position: 'absolute',
+    bottom: height * 0.3,
+    right: width * 0.1,
     width: 150,
     height: 150,
     borderRadius: 75,
@@ -552,19 +660,14 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   moodBlur: {
-    borderRadius: 80,
+    borderRadius: 25,
     overflow: 'hidden',
   },
   moodGradient: {
-    padding: 3,
-    borderRadius: 80,
+    paddingHorizontal: 30,
+    paddingVertical: 20,
   },
   moodContent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 77,
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
     alignItems: 'center',
   },
   moodEmoji: {
@@ -572,9 +675,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   moodText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3748',
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
     textTransform: 'capitalize',
   },
   statusContainer: {
@@ -582,96 +685,83 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#94A3B8',
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     marginBottom: 20,
-    fontWeight: '500',
   },
   dotsContainer: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#6C5CE7',
+    marginHorizontal: 4,
   },
   progressContainer: {
-    width: '100%',
     alignItems: 'center',
     marginBottom: 40,
   },
   progressTrack: {
-    width: '80%',
+    width: width * 0.7,
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   progressFill: {
-    width: '100%',
     height: '100%',
     backgroundColor: '#6C5CE7',
     borderRadius: 2,
-    transformOrigin: 'left',
   },
   progressText: {
     fontSize: 14,
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-    fontStyle: 'italic',
   },
   cancelButton: {
     borderRadius: 25,
     overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   cancelBlur: {
     borderRadius: 25,
   },
   cancelGradient: {
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 25,
+    paddingHorizontal: 30,
+    paddingVertical: 15,
   },
   cancelButtonText: {
-    color: '#FFFFFF',
+    color: 'white',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
   bottomDecoration: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
     paddingBottom: 20,
   },
   decorativeLine: {
     width: 40,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   decorativeText: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 15,
+    color: 'rgba(255, 255, 255, 0.5)',
   },
 });
