@@ -9,7 +9,10 @@ export default {
     sdkVersion: '50.0.0',
     extra: {
       SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY
+      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+      eas: {
+        projectId: 'f94358f3-182f-411c-978e-30fbbe5c999a'
+      }
     }
   }
 };
