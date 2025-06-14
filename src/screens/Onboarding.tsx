@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import {
   View,
@@ -21,6 +23,19 @@ import { supabase } from '../lib/supabase';
 import { joinOrCreateRoom, Mood } from '../lib/room';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+
+// Google Forms Configuration
+const GOOGLE_FORMS_CONFIG = {
+  // Replace with your Google Form URL (the one you get when you click "Send" -> "Link")
+  formUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfn0XwLayWhxNEqE6iu5n0V3NCd3DB05bJ9NTGqP53feLH68Q/formResponse',
+  // Replace with your form field entry IDs (inspect the form HTML to get these)
+  fields: {
+    rating: 'entry.1440786762',    // Replace with your rating field entry ID
+    feedback: 'entry.1947284111',  // Replace with your feedback field entry ID
+    timestamp: 'entry.446406858', // Replace with your timestamp field entry ID (optional)
+    appName: 'entry.833439770',   // Replace with your app name field entry ID (optional)
+  }
+};
 
 type OnboardingScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -105,45 +120,48 @@ export default function Onboarding({ navigation }: Props) {
     }
   };
 
-  const sendFeedbackEmail = async (feedback: string, userRating: number) => {
+  const submitToGoogleForms = async (feedback: string, userRating: number): Promise<boolean> => {
     try {
-      // Replace with your actual email service endpoint
-      // This is a mock implementation - you'll need to integrate with your preferred email service
-      const emailData = {
-        to: 'feedback@anontalk.com', // Replace with your designated email
-        subject: `AnonTalk Feedback - Rating: ${userRating}/5`,
-        body: `
-          New feedback received from AnonTalk app:
-          
-          Rating: ${userRating}/5 stars
-          
-          Feedback:
-          ${feedback}
-          
-          Timestamp: ${new Date().toISOString()}
-        `,
-      };
+      console.log('Submitting feedback to Google Forms...', { rating: userRating, feedback });
 
-      // Example using a hypothetical email service API
-      // You can integrate with services like EmailJS, SendGrid, or your own backend
-      const response = await fetch('YOUR_EMAIL_SERVICE_ENDPOINT', {
+      // Create form data
+      const formData = new FormData();
+      formData.append(GOOGLE_FORMS_CONFIG.fields.rating, userRating.toString());
+      formData.append(GOOGLE_FORMS_CONFIG.fields.feedback, feedback);
+      
+      // Optional: Add timestamp and app name if you have those fields in your form
+      if (GOOGLE_FORMS_CONFIG.fields.timestamp) {
+        formData.append(GOOGLE_FORMS_CONFIG.fields.timestamp, new Date().toLocaleString());
+      }
+      
+      if (GOOGLE_FORMS_CONFIG.fields.appName) {
+        formData.append(GOOGLE_FORMS_CONFIG.fields.appName, 'AnonTalk');
+      }
+
+      // Submit to Google Forms
+      const response = await fetch(GOOGLE_FORMS_CONFIG.formUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailData),
+        body: formData,
+        mode: 'no-cors', // Important: Google Forms requires no-cors mode
       });
 
-      if (response.ok) {
-        return true;
-      } else {
-        throw new Error('Failed to send email');
-      }
-    } catch (error) {
-      // console.error('Error sending feedback email:', error);
-      // For now, we'll just log it and return true to simulate success
-      // In production, you'd want to handle this properly
+      // Note: With no-cors mode, we can't read the response status
+      // Google Forms will always appear to succeed from the client side
+      console.log('Feedback submitted to Google Forms successfully');
       return true;
+
+    } catch (error) {
+      console.error('Error submitting to Google Forms:', error);
+      
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        
+        if (error.message.includes('Network request failed')) {
+          console.error('Network error - Check internet connection');
+        }
+      }
+      
+      return false;
     }
   };
 
@@ -156,24 +174,69 @@ export default function Onboarding({ navigation }: Props) {
     setSubmittingFeedback(true);
     
     try {
-      const success = await sendFeedbackEmail(feedbackText, rating);
+      console.log('Submitting feedback:', { rating, feedback: feedbackText });
+      
+      const success = await submitToGoogleForms(feedbackText, rating);
       
       if (success) {
         Alert.alert(
           'Thank You! 🙏',
-          'Your feedback has been sent successfully. We appreciate your input!',
-          [{ text: 'OK', onPress: () => setShowFeedbackModal(false) }]
+          'Your feedback has been submitted successfully. We appreciate your input!',
+          [{ 
+            text: 'OK', 
+            onPress: () => {
+              setShowFeedbackModal(false);
+              setFeedbackText('');
+              setRating(0);
+            }
+          }]
         );
-        setFeedbackText('');
-        setRating(0);
       } else {
-        Alert.alert('Error', 'Failed to send feedback. Please try again.');
+        Alert.alert(
+          'Error Submitting Feedback',
+          'We couldn\'t submit your feedback right now. Please check your internet connection and try again.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Retry', onPress: () => handleSubmitFeedback() }
+          ]
+        );
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send feedback. Please try again.');
+      console.error('Unexpected error in handleSubmitFeedback:', error);
+      Alert.alert(
+        'Unexpected Error',
+        'Something went wrong while submitting your feedback. Please try again later.'
+      );
     } finally {
       setSubmittingFeedback(false);
     }
+  };
+
+  const handleCloseFeedbackModal = () => {
+    // If feedback is still being submitted, warn the user
+    if (submittingFeedback) {
+      Alert.alert(
+        'Submitting Feedback',
+        'Your feedback is still being submitted. Are you sure you want to close?',
+        [
+          { text: 'Keep Open', style: 'cancel' },
+          { 
+            text: 'Close Anyway', 
+            style: 'destructive',
+            onPress: () => {
+              setShowFeedbackModal(false);
+              setFeedbackText('');
+              setRating(0);
+            }
+          }
+        ]
+      );
+      return;
+    }
+    
+    setShowFeedbackModal(false);
+    setFeedbackText('');
+    setRating(0);
   };
 
   const handleMoodSelection = async (mood: Mood) => {
@@ -376,7 +439,7 @@ export default function Onboarding({ navigation }: Props) {
         visible={showFeedbackModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowFeedbackModal(false)}
+        onRequestClose={handleCloseFeedbackModal}
       >
         <KeyboardAvoidingView 
           style={styles.modalContainer}
@@ -389,7 +452,7 @@ export default function Onboarding({ navigation }: Props) {
                   <Text style={styles.modalTitle}>Share Your Feedback 💭</Text>
                   <TouchableOpacity
                     style={styles.closeButton}
-                    onPress={() => setShowFeedbackModal(false)}
+                    onPress={handleCloseFeedbackModal}
                   >
                     <Text style={styles.closeButtonText}>✕</Text>
                   </TouchableOpacity>
@@ -410,18 +473,27 @@ export default function Onboarding({ navigation }: Props) {
                   textAlignVertical="top"
                 />
 
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    (!feedbackText.trim() || rating === 0 || submittingFeedback) && styles.submitButtonDisabled
-                  ]}
-                  onPress={handleSubmitFeedback}
-                  disabled={!feedbackText.trim() || rating === 0 || submittingFeedback}
-                >
-                  <Text style={styles.submitButtonText}>
-                    {submittingFeedback ? 'Sending...' : 'Send Feedback'}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.submitButton,
+                      (!feedbackText.trim() || rating === 0 || submittingFeedback) && styles.submitButtonDisabled
+                    ]}
+                    onPress={handleSubmitFeedback}
+                    disabled={!feedbackText.trim() || rating === 0 || submittingFeedback}
+                  >
+                    <Text style={styles.submitButtonText}>
+                      {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.closeModalButton}
+                    onPress={handleCloseFeedbackModal}
+                  >
+                    <Text style={styles.closeModalButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
             </View>
           </View>
@@ -599,7 +671,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -671,6 +743,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     minHeight: 120,
   },
+  buttonContainer: {
+    gap: 12,
+  },
   submitButton: {
     backgroundColor: '#6C5CE7',
     paddingVertical: 16,
@@ -685,6 +760,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  closeModalButton: {
+    backgroundColor: '#F7FAFC',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  closeModalButtonText: {
+    color: '#4A5568',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
-
-
