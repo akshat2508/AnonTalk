@@ -39,3 +39,4 @@ personal_notes.txt
 .env
 .env.production
 backup
+src/config/config.ts
