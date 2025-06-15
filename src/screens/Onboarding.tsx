@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(19, 10, 98, 0.3)',
+    backgroundColor: 'rgba(20, 4, 98, 0.3)',
   },
   // Modal Styles
   modalContainer: {
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(6, 23, 90, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
