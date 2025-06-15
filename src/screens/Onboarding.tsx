@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import {
   View,
@@ -509,6 +507,8 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+   backgroundColor: '#0F0F23', // Add this line
+
   },
   content: {
     flex: 1,
