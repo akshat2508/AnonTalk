@@ -105,7 +105,7 @@ export default function Onboarding({ navigation }: Props) {
     if (!hasShownPrivacyAlert) {
       Alert.alert(
         "🔒 Privacy & Safety",
-        "Welcome to AnonTalk! For your safety and privacy:\n\n• Never share personal information (name, address, phone, etc.)\n• Don't reveal your location\n• Keep conversations anonymous\n• Report inappropriate behavior\n• Trust your instincts\n\nStay safe and enjoy connecting! 💙",
+        "Welcome to AnonTalk! For your safety and privacy:\n\n• Never share personal information (name, address, phone, etc.)\n• Don't reveal your location\n• Keep conversations anonymous\n• Report inappropriate behavior\n• Trust your instincts\n\n🛡️ Auto-Cleaning Messages: \nTo enhance privacy and app performance, messages older than 2 minutes will  be automatically deleted every 15 minutes. This ensures a clutter-free, secure chat experience for all users.\n\nStay safe and enjoy connecting! 💙",
         [
           {
             text: "I Understand",
