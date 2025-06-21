@@ -1,12 +1,9 @@
 
----
-
-```md
 # 🕵️‍♂️ AnonTalk
 
-> An anonymous real-time chat application built with **React Native**, **Expo**, **TypeScript**, and **Supabase**.
+> An anonymous real-time chat application built with *React Native**, **Expo**, **TypeScript**, and **Supabase**.
 
-![AnonTalk Banner](https://your-image-link.com) <!-- Optional: Add a screenshot/banner image -->
+
 
 ---
 
@@ -132,6 +129,5 @@ Use Expo Go or an emulator to run the app.
 
 **Akshat Paul**
 [GitHub](https://github.com/akshat2508) • [LinkedIn](https://www.linkedin.com/in/akshat-paul/) • 
-
 
 
