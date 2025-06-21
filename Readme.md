@@ -1,7 +1,7 @@
 
 # 🕵️‍♂️ AnonTalk
 
-> An anonymous real-time chat application built with *React Native**, **Expo**, **TypeScript**, and **Supabase**.
+> An anonymous real-time chat application built with **React Native**, **Expo**, **TypeScript**, and **Supabase**.
 
 
 
@@ -96,22 +96,23 @@ Use Expo Go or an emulator to run the app.
 
 ## 📸 Screenshots
 
-<h3 align = "center" >🖼️ Onboarding Screen</h3>
+<h3 align="center">💬 Chat Interface</h3>
 <p align="center">
   <img src="https://github.com/user-attachments/assets/13569586-ec77-4199-8ff5-436ff324bb30" alt="Onboarding Screen" width="200"/>
 </p>
 
-<h3 align = "center">🕓 Waiting Room</h3>
+<h3 align = "center" >🖼️ Onboarding Screen</h3>
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/dbd86ddc-1443-4ac7-8f40-a906eb93f861" alt="Waiting Room" width="200"/>
 </p>
 
-<h3 align="center">💬 Chat Interface</h3>
+<h3 align = "center">🕓 Waiting Room</h3>
 <p align="center">
   <img src="https://github.com/user-attachments/assets/b3ba8bc0-877a-4ccd-b797-c26feab5ed2a" alt="Chat Interface" width="200"/>
 </p>
 
-<h3 align = "center">📲 App Preview</h3>
+<h3 align = "center">📲 Feedback Preview</h3>
 <p align="center">
   <img src="https://github.com/user-attachments/assets/6040e575-e4eb-4009-9689-15354a2317f0" alt="App Preview" width="200"/>
 </p>
