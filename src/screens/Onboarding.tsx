@@ -24,14 +24,12 @@ import { BlurView } from 'expo-blur';
 
 // Google Forms Configuration
 const GOOGLE_FORMS_CONFIG = {
-  // Replace with your Google Form URL (the one you get when you click "Send" -> "Link")
   formUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfn0XwLayWhxNEqE6iu5n0V3NCd3DB05bJ9NTGqP53feLH68Q/formResponse',
-  // Replace with your form field entry IDs (inspect the form HTML to get these)
   fields: {
-    rating: 'entry.1440786762',    // Replace with your rating field entry ID
-    feedback: 'entry.1947284111',  // Replace with your feedback field entry ID
-    timestamp: 'entry.446406858', // Replace with your timestamp field entry ID (optional)
-    appName: 'entry.833439770',   // Replace with your app name field entry ID (optional)
+    rating: 'entry.1440786762',
+    feedback: 'entry.1947284111',
+    timestamp: 'entry.446406858',
+    appName: 'entry.833439770',
   }
 };
 
@@ -46,13 +44,13 @@ interface Props {
 
 const { width, height } = Dimensions.get('window');
 
-const moods: { key: Mood; emoji: string; label: string; colors: readonly [string, string] }[] = [
-  { key: 'happy', emoji: '😊', label: 'Happy', colors: ['#FFD93D', '#FFED4E'] as const },
-  { key: 'sad', emoji: '😢', label: 'Sad', colors: ['#6BB6FF', '#9DCEFF'] as const },
-  { key: 'excited', emoji: '🤩', label: 'Excited', colors: ['#FF6B6B', '#FF8E8E'] as const },
-  { key: 'anxious', emoji: '😰', label: 'Anxious', colors: ['#DDA0DD', '#E6B8E6'] as const },
-  { key: 'calm', emoji: '😌', label: 'Calm', colors: ['#98FB98', '#B8FFB8'] as const },
-  { key: 'angry', emoji: '😠', label: 'Angry', colors: ['#FF4500', '#FF6B2B'] as const },
+const moods: { key: Mood; emoji: string; label: string; colors: readonly [string, string]; gradient: readonly [string, string, string] }[] = [
+  { key: 'happy', emoji: '✨', label: 'vibing', colors: ['#FFD93D', '#FFED4E'] as const, gradient: ['#FEE140', '#FA709A', '#FEE140'] as const },
+  { key: 'sad', emoji: '💔', label: 'down bad', colors: ['#6BB6FF', '#9DCEFF'] as const, gradient: ['#667EEA', '#764BA2', '#667EEA'] as const },
+  { key: 'excited', emoji: '🤤', label: 'spicy', colors: ['#FF6B6B', '#FF8E8E'] as const, gradient: ['#FF0844', '#FF6B6B', '#FF0844'] as const },
+  { key: 'anxious', emoji: '😵‍💫', label: 'lowkey stressed', colors: ['#DDA0DD', '#E6B8E6'] as const, gradient: ['#A8EDEA', '#FED6E3', '#A8EDEA'] as const },
+  { key: 'calm', emoji: '🌿', label: 'chill fr', colors: ['#98FB98', '#B8FFB8'] as const, gradient: ['#56CCF2', '#2F80ED', '#56CCF2'] as const },
+  { key: 'angry', emoji: '😤', label: 'big mad', colors: ['#FF4500', '#FF6B2B'] as const, gradient: ['#F85032', '#E73827', '#F85032'] as const },
 ];
 
 export default function Onboarding({ navigation }: Props) {
@@ -66,46 +64,76 @@ export default function Onboarding({ navigation }: Props) {
   
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
   const moodAnimations = React.useRef(
     moods.map(() => new Animated.Value(0))
   ).current;
 
   React.useEffect(() => {
-    // Show privacy alert when component mounts
     showPrivacyAlert();
     
-    // Entrance animations
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
-        tension: 50,
-        friction: 7,
+        tension: 40,
+        friction: 6,
         useNativeDriver: true,
       }),
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 600,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Staggered mood button animations
-    const staggerDelay = 100;
+    const staggerDelay = 80;
     moodAnimations.forEach((anim, index) => {
-      Animated.timing(anim, {
+      Animated.spring(anim, {
         toValue: 1,
-        duration: 600,
-        delay: 400 + index * staggerDelay,
+        delay: 200 + index * staggerDelay,
+        tension: 50,
+        friction: 7,
         useNativeDriver: true,
       }).start();
     });
+
+    // Continuous pulse animation for title
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Continuous rotation for decorative element
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: true,
+      })
+    ).start();
   }, []);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const showPrivacyAlert = () => {
     if (!hasShownPrivacyAlert) {
       Alert.alert(
         "🔒 Privacy & Safety",
-        "Welcome to AnonTalk! For your safety and privacy:\n\n• Never share personal information (name, address, phone, etc.)\n• Don't reveal your location\n• Keep conversations anonymous\n• Report inappropriate behavior\n• Trust your instincts\n\n🛡️ Auto-Cleaning Messages: \nTo enhance privacy and app performance, messages older than 5 minutes will  be automatically deleted every 15 minutes. This ensures a clutter-free, secure chat experience for all users.\n\nStay safe and enjoy connecting! 💙",
+        "Welcome to AnonTalk! For your safety and privacy:\n\n• Never share personal information (name, address, phone, etc.)\n• Don't reveal your location\n• Keep conversations anonymous\n• Report inappropriate behavior\n• Trust your instincts\n\n🛡️ Auto-Cleaning Messages: \nTo enhance privacy and app performance, messages older than 5 minutes will be automatically deleted every 15 minutes. This ensures a clutter-free, secure chat experience for all users.\n\nStay safe and enjoy connecting! 💙",
         [
           {
             text: "I Understand",
@@ -122,12 +150,10 @@ export default function Onboarding({ navigation }: Props) {
     try {
       console.log('Submitting feedback to Google Forms...', { rating: userRating, feedback });
 
-      // Create form data
       const formData = new FormData();
       formData.append(GOOGLE_FORMS_CONFIG.fields.rating, userRating.toString());
       formData.append(GOOGLE_FORMS_CONFIG.fields.feedback, feedback);
       
-      // Optional: Add timestamp and app name if you have those fields in your form
       if (GOOGLE_FORMS_CONFIG.fields.timestamp) {
         formData.append(GOOGLE_FORMS_CONFIG.fields.timestamp, new Date().toLocaleString());
       }
@@ -136,15 +162,12 @@ export default function Onboarding({ navigation }: Props) {
         formData.append(GOOGLE_FORMS_CONFIG.fields.appName, 'AnonTalk');
       }
 
-      // Submit to Google Forms
       const response = await fetch(GOOGLE_FORMS_CONFIG.formUrl, {
         method: 'POST',
         body: formData,
-        mode: 'no-cors', // Important: Google Forms requires no-cors mode
+        mode: 'no-cors',
       });
 
-      // Note: With no-cors mode, we can't read the response status
-      // Google Forms will always appear to succeed from the client side
       console.log('Feedback submitted to Google Forms successfully');
       return true;
 
@@ -211,7 +234,6 @@ export default function Onboarding({ navigation }: Props) {
   };
 
   const handleCloseFeedbackModal = () => {
-    // If feedback is still being submitted, warn the user
     if (submittingFeedback) {
       Alert.alert(
         'Submitting Feedback',
@@ -243,17 +265,17 @@ export default function Onboarding({ navigation }: Props) {
     setLoading(true);
     setSelectedMood(mood);
     
-    // Button press animation
     const moodIndex = moods.findIndex(m => m.key === mood);
     Animated.sequence([
       Animated.timing(moodAnimations[moodIndex], {
-        toValue: 0.9,
+        toValue: 0.85,
         duration: 100,
         useNativeDriver: true,
       }),
-      Animated.timing(moodAnimations[moodIndex], {
+      Animated.spring(moodAnimations[moodIndex], {
         toValue: 1,
-        duration: 100,
+        tension: 100,
+        friction: 3,
         useNativeDriver: true,
       }),
     ]).start();
@@ -261,7 +283,6 @@ export default function Onboarding({ navigation }: Props) {
     try {
       console.log(`Selected mood: ${mood}`);
       
-      // Sign in anonymously
       const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
       
       if (authError) {
@@ -276,20 +297,16 @@ export default function Onboarding({ navigation }: Props) {
 
       console.log(`User ID: ${userId}`);
 
-      // Wait a bit to ensure auth is fully processed
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Join or create room
       const room = await joinOrCreateRoom(mood, userId);
       
       console.log('Room result:', room);
       
       if (room.status === 'active') {
-        // Room is immediately active (joined existing room)
         console.log('Navigating to Chat - room is active');
         navigation.replace('Chat', { roomId: room.id, mood });
       } else {
-        // Room is waiting (created new room)
         console.log('Navigating to WaitingRoom - room is waiting');
         navigation.replace('WaitingRoom', { mood });
       }
@@ -327,10 +344,14 @@ export default function Onboarding({ navigation }: Props) {
     <>
       <StatusBar barStyle="light-content" />
       <LinearGradient
-        colors={['#0F0F23', '#1A1A2E', '#16213E']}
+        colors={['#0A0A0F', '#1A0F2E', '#2D1B3D']}
         style={styles.container}
       >
         <SafeAreaView style={styles.safeArea}>
+          {/* Animated Background Elements */}
+          <Animated.View style={[styles.bgCircle1, { transform: [{ rotate: spin }] }]} />
+          <Animated.View style={[styles.bgCircle2, { transform: [{ rotate: spin }] }]} />
+          
           <Animated.View 
             style={[
               styles.content,
@@ -342,25 +363,44 @@ export default function Onboarding({ navigation }: Props) {
           >
             {/* Header Section */}
             <View style={styles.header}>
-              <View style={styles.headerTop}>
-                <TouchableOpacity
-                  style={styles.feedbackButton}
-                  onPress={() => setShowFeedbackModal(true)}
+              <TouchableOpacity
+                style={styles.feedbackButton}
+                onPress={() => setShowFeedbackModal(true)}
+              >
+                <LinearGradient
+                  colors={['#FF0844', '#FFB199']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.feedbackGradient}
                 >
-                  <Text style={styles.feedbackButtonText}>💬 Feedback</Text>
-                </TouchableOpacity>
-              </View>
+                  <Text style={styles.feedbackButtonText}>💬 spill tea</Text>
+                </LinearGradient>
+              </TouchableOpacity>
               
-              <Text style={styles.title}>AnonTalk</Text>
-              <View style={styles.titleUnderline} />
-              <Text style={styles.subtitle}>How are you feeling today?</Text>
+              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <Text style={styles.title}>anonTalk</Text>
+                <View style={styles.titleAccent}>
+                  <LinearGradient
+                    colors={['#FF0844', '#FF6B6B', '#FFB199']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.accentBar}
+                  />
+                </View>
+              </Animated.View>
+              
+              <Text style={styles.subtitle}>what's the vibe rn? 👀</Text>
               <Text style={styles.description}>
-                Connect with someone who understands your vibe ✨
+                find ur ppl. no cap 💯
               </Text>
             </View>
             
-            {/* Mood Grid */}
-            <View style={styles.moodContainer}>
+            {/* Mood Grid - Vertical Scroll Layout */}
+            <ScrollView 
+              style={styles.moodScrollContainer}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.moodScrollContent}
+            >
               <View style={styles.moodGrid}>
                 {moods.map((mood, index) => (
                   <Animated.View
@@ -371,9 +411,9 @@ export default function Onboarding({ navigation }: Props) {
                         opacity: moodAnimations[index],
                         transform: [
                           {
-                            translateY: moodAnimations[index].interpolate({
+                            translateX: moodAnimations[index].interpolate({
                               inputRange: [0, 1],
-                              outputRange: [50, 0],
+                              outputRange: [index % 2 === 0 ? -100 : 100, 0],
                             }),
                           },
                           {
@@ -390,43 +430,41 @@ export default function Onboarding({ navigation }: Props) {
                       ]}
                       onPress={() => handleMoodSelection(mood.key)}
                       disabled={loading}
-                      activeOpacity={0.8}
+                      activeOpacity={0.7}
                     >
-                      <BlurView intensity={20} style={styles.blurContainer}>
-                        <LinearGradient
-                          colors={mood.colors}
-                          style={styles.gradientBackground}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                        >
+                      <LinearGradient
+                        colors={mood.gradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.moodGradient}
+                      >
+                        <BlurView intensity={10} style={styles.moodBlur}>
                           <View style={styles.moodContent}>
-                            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+                            <View style={styles.emojiContainer}>
+                              <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+                            </View>
                             <Text style={styles.moodLabel}>
-                              {loading && selectedMood === mood.key ? 'Connecting...' : mood.label}
+                              {loading && selectedMood === mood.key ? 'loading...' : mood.label}
                             </Text>
                             {loading && selectedMood === mood.key && (
                               <View style={styles.loadingDots}>
-                                <View style={styles.dot} />
-                                <View style={styles.dot} />
-                                <View style={styles.dot} />
+                                <View style={[styles.dot, styles.dot1]} />
+                                <View style={[styles.dot, styles.dot2]} />
+                                <View style={[styles.dot, styles.dot3]} />
                               </View>
                             )}
                           </View>
-                        </LinearGradient>
-                      </BlurView>
+                        </BlurView>
+                      </LinearGradient>
                     </TouchableOpacity>
                   </Animated.View>
                 ))}
               </View>
-            </View>
+            </ScrollView>
 
-            {/* Footer */}
+            {/* Footer Indicator */}
             <View style={styles.footer}>
-              <View style={styles.footerDots}>
-                {[...Array(3)].map((_, i) => (
-                  <View key={i} style={styles.footerDot} />
-                ))}
-              </View>
+              <Text style={styles.footerText}>tap ur mood ⚡</Text>
             </View>
           </Animated.View>
         </SafeAreaView>
@@ -444,10 +482,13 @@ export default function Onboarding({ navigation }: Props) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['#1A0F2E', '#2D1B3D']}
+              style={styles.modalContent}
+            >
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Share Your Feedback 💭</Text>
+                  <Text style={styles.modalTitle}>spill the tea ☕</Text>
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={handleCloseFeedbackModal}
@@ -456,18 +497,18 @@ export default function Onboarding({ navigation }: Props) {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.ratingLabel}>How would you rate your experience?</Text>
+                <Text style={styles.ratingLabel}>rate the vibe fr</Text>
                 {renderStars()}
 
-                <Text style={styles.feedbackLabel}>Tell us more about your experience:</Text>
+                <Text style={styles.feedbackLabel}>tell us everything bestie:</Text>
                 <TextInput
                   style={styles.feedbackInput}
                   multiline
                   numberOfLines={6}
                   value={feedbackText}
                   onChangeText={setFeedbackText}
-                  placeholder="Share your thoughts, suggestions, or report any issues..."
-                  placeholderTextColor="#94A3B8"
+                  placeholder="no filter zone... be honest 💯"
+                  placeholderTextColor="#8B7BA8"
                   textAlignVertical="top"
                 />
 
@@ -480,20 +521,27 @@ export default function Onboarding({ navigation }: Props) {
                     onPress={handleSubmitFeedback}
                     disabled={!feedbackText.trim() || rating === 0 || submittingFeedback}
                   >
-                    <Text style={styles.submitButtonText}>
-                      {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
-                    </Text>
+                    <LinearGradient
+                      colors={(!feedbackText.trim() || rating === 0 || submittingFeedback) ? ['#6B5B7B', '#4A3C5A'] : ['#FF0844', '#FF6B6B']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.submitGradient}
+                    >
+                      <Text style={styles.submitButtonText}>
+                        {submittingFeedback ? 'sending...' : 'send it 🚀'}
+                      </Text>
+                    </LinearGradient>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.closeModalButton}
                     onPress={handleCloseFeedbackModal}
                   >
-                    <Text style={styles.closeModalButtonText}>Close</Text>
+                    <Text style={styles.closeModalButtonText}>nvm</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
-            </View>
+            </LinearGradient>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -507,149 +555,180 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-   backgroundColor: '#0F0F23', // Add this line
-
+    backgroundColor: 'transparent',
+  },
+  bgCircle1: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255, 8, 68, 0.1)',
+  },
+  bgCircle2: {
+    position: 'absolute',
+    bottom: -150,
+    left: -150,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: 'rgba(107, 92, 231, 0.1)',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   header: {
-    flex: 0.4,
+    flex: 0.35,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 20,
-  },
-  headerTop: {
-    position: 'absolute',
-    top: 10,
-    right: 0,
-    zIndex: 1,
+    paddingTop: 10,
   },
   feedbackButton: {
-    backgroundColor: 'rgba(108, 92, 231, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(108, 92, 231, 0.3)',
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    borderRadius: 25,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#FF0844',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  feedbackGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   feedbackButtonText: {
-    color: '#E2E8F0',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   title: {
-    fontSize: 42,
-    fontWeight: '800',
+    fontSize: 56,
+    fontWeight: '900',
     color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: 1.5,
-    marginBottom: 8,
+    letterSpacing: -2,
+    textShadowColor: 'rgba(255, 8, 68, 0.5)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 20,
+    marginTop: 10
   },
-  titleUnderline: {
-    width: 60,
-    height: 4,
-    backgroundColor: '#6C5CE7',
-    borderRadius: 2,
-    marginBottom: 16,
+  titleAccent: {
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  accentBar: {
+    width: 120,
+    height: 6,
+    borderRadius: 3,
   },
   subtitle: {
     fontSize: 20,
-    color: '#E2E8F0',
+    color: '#E8DCFF',
     textAlign: 'center',
-    fontWeight: '600',
-    marginBottom: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   description: {
-    fontSize: 16,
-    color: '#94A3B8',
+    fontSize: 15,
+    color: '#A99BC7',
     textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: '600',
   },
-  moodContainer: {
-    flex: 0.6,
-    justifyContent: 'center',
+  moodScrollContainer: {
+    flex: 1,
+    marginTop: 10,
+  },
+  moodScrollContent: {
+    paddingBottom: 20,
   },
   moodGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
   },
   moodButtonContainer: {
     width: '48%',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   moodButton: {
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
-    elevation: 8,
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
-  blurContainer: {
-    borderRadius: 24,
+  moodGradient: {
+    padding: 3,
+  },
+  moodBlur: {
+    borderRadius: 25,
     overflow: 'hidden',
-  },
-  gradientBackground: {
-    borderRadius: 24,
-    padding: 2,
   },
   moodContent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 22,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(10, 10, 15, 0.85)',
+    borderRadius: 25,
+    paddingVertical: 22,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 120,
+    minHeight: 130,
   },
   selectedMood: {
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
+  },
+  emojiContainer: {
+    marginBottom: 10,
   },
   moodEmoji: {
-    fontSize: 44,
-    marginBottom: 8,
+    fontSize: 48,
   },
   moodLabel: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3748',
+    fontWeight: '900',
+    color: '#FFFFFF',
     textAlign: 'center',
+    letterSpacing: 0.5,
+    textTransform: 'lowercase',
   },
   loadingDots: {
     flexDirection: 'row',
     marginTop: 8,
-    gap: 4,
+    gap: 6,
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#6C5CE7',
-  },
-  footer: {
-    flex: 0.1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 20,
-  },
-  footerDots: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  footerDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(20, 4, 98, 0.3)',
+    backgroundColor: '#FF0844',
+  },
+  dot1: {
+    opacity: 0.4,
+  },
+  dot2: {
+    opacity: 0.7,
+  },
+  dot3: {
+    opacity: 1,
+  },
+  footer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#8B7BA8',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   // Modal Styles
   modalContainer: {
@@ -657,25 +736,21 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(6, 23, 90, 0.7)',
+    backgroundColor: 'rgba(10, 10, 15, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 30,
+    padding: 28,
     width: '100%',
     maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowColor: '#FF0844',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -684,27 +759,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -1,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F7FAFC',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 18,
-    color: '#4A5568',
-    fontWeight: '600',
+    fontSize: 20,
+    color: '#E8DCFF',
+    fontWeight: '700',
   },
   ratingLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2D3748',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#E8DCFF',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -712,65 +788,70 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: 24,
-    gap: 8,
+    gap: 10,
   },
   starButton: {
     padding: 4,
   },
   star: {
-    fontSize: 32,
+    fontSize: 34,
   },
   starFilled: {
     opacity: 1,
   },
   starEmpty: {
-    opacity: 0.3,
+    opacity: 0.25,
   },
   feedbackLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3748',
+    fontWeight: '700',
+    color: '#E8DCFF',
     marginBottom: 12,
   },
   feedbackInput: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#2D3748',
-    backgroundColor: '#F7FAFC',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 18,
+    padding: 18,
+    fontSize: 15,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     marginBottom: 24,
-    minHeight: 120,
+    minHeight: 130,
+    fontWeight: '500',
   },
   buttonContainer: {
     gap: 12,
   },
   submitButton: {
-    backgroundColor: '#6C5CE7',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderRadius: 18,
+    overflow: 'hidden',
+    elevation: 5,
   },
   submitButtonDisabled: {
-    backgroundColor: '#CBD5E0',
+    opacity: 0.5,
+  },
+  submitGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
   },
   submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   closeModalButton: {
-    backgroundColor: '#F7FAFC',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 251, 251, 1)',
+    paddingVertical: 18,
+    borderRadius: 18,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   closeModalButtonText: {
-    color: '#4A5568',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#a99bc7',
+    fontSize: 17,
+    fontWeight: '700',
   },
 });
