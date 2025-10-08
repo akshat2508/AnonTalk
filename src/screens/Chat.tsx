@@ -47,7 +47,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   const [isUserLoaded, setIsUserLoaded] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
-  const [roomEnded, setRoomEnded] = useState(false); // Track if room has ended
+  const [roomEnded, setRoomEnded] = useState(false);
   
   const flatListRef = useRef<FlatList>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -58,29 +58,21 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const headerShineAnim = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
+  const bgRotation = useRef(new Animated.Value(0)).current;
+  const borderPulse = useRef(new Animated.Value(1)).current;
 
-  // Helper function to check if error is RLS related
   const isRLSError = (error: any): boolean => {
     return error?.code === '42501' || 
            (error?.message && error.message.includes('row-level security policy'));
   };
 
-  // Helper function to show graceful error alert
   const showRoomEndedAlert = useCallback(() => {
     Alert.alert(
-      '💔 Chat Session Ended',
-      'This chat session has ended or your anonymous partner has left the chat. Would you like to return to the main screen?',
+      '💀 Session Ghosted',
+      'Yo this chat died. Your mystery person bounced. Wanna head back?',
       [
-        // {
-        //   text: 'Stay & View',
-        //   style: 'cancel',
-        //   onPress: () => {
-        //     setRoomEnded(true);
-        //     setIsConnected(false);
-        //   }
-        // },
         {
-          text: 'Leave Chat',
+          text: 'Dip Out',
           style: 'default',
           onPress: async () => {
             try {
@@ -98,46 +90,63 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
     );
   }, [roomId, navigation]);
 
-  // Entrance animations
+  // Enhanced animations
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 600,
         useNativeDriver: true,
       }),
-      Animated.timing(slideAnim, {
+      Animated.spring(slideAnim, {
         toValue: 0,
-        duration: 600,
+        friction: 8,
+        tension: 40,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Header shine effect
+    // Background rotation
     Animated.loop(
-      Animated.timing(headerShineAnim, {
+      Animated.timing(bgRotation, {
         toValue: 1,
-        duration: 3000,
-        useNativeDriver: false,
+        duration: 20000,
+        useNativeDriver: true,
       })
+    ).start();
+
+    // Border pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(borderPulse, {
+          toValue: 1.15,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(borderPulse, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
     ).start();
 
     // Connection pulse
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1000,
+          toValue: 1.3,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
     ).start();
-  }, [fadeAnim, slideAnim, headerShineAnim, pulseAnim]);
+  }, [fadeAnim, slideAnim, bgRotation, borderPulse, pulseAnim]);
 
   // Typing animation
   useEffect(() => {
@@ -146,12 +155,12 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
         Animated.sequence([
           Animated.timing(typingAnim, {
             toValue: 1,
-            duration: 800,
+            duration: 600,
             useNativeDriver: true,
           }),
           Animated.timing(typingAnim, {
-            toValue: 0,
-            duration: 800,
+            toValue: 0.3,
+            duration: 600,
             useNativeDriver: true,
           }),
         ])
@@ -159,7 +168,6 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [newMessage, typingAnim]);
 
-  // Auto-scroll effect
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -348,17 +356,14 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
         .single();
 
       if (error) {
-        // console.error('❌ Direct insert failed:', error);
-        
         if (isRLSError(error)) {
           console.log('🚫 RLS error detected, showing graceful alert');
           setMessages(prev => prev.filter(m => m.id !== tempId));
-          setNewMessage(''); // Clear the input
+          setNewMessage('');
           showRoomEndedAlert();
           return;
         }
         
-        // Try the sendMessage function for other errors
         console.log('Trying sendMessage function...');
         await sendMessage(roomId, currentUserId, messageText);
       } else {
@@ -373,15 +378,14 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
       
       if (isRLSError(error)) {
         console.log('🚫 RLS error in catch block, showing graceful alert');
-        setNewMessage(''); // Clear the input
+        setNewMessage('');
         showRoomEndedAlert();
       } else {
-        // For other errors, restore the message and show generic error
         setNewMessage(messageText);
         Alert.alert(
-          'Message Failed',
-          'Unable to send message. Please try again.',
-          [{ text: 'OK' }]
+          'Bruh Moment',
+          'Message failed to send. Try again?',
+          [{ text: 'Bet' }]
         );
       }
     }
@@ -389,12 +393,12 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 
   const handleLeaveChat = useCallback(async () => {
     Alert.alert(
-      'Leave Chat',
-      'Are you sure you want to leave this conversation?',
+      'Peace Out? ✌️',
+      'You really wanna dip from this convo?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Nah Stay', style: 'cancel' },
         {
-          text: 'Leave',
+          text: 'Yeah Leave',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -413,24 +417,54 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 
   const getMoodEmoji = useCallback((mood: string): string => {
     const moodEmojis: Record<string, string> = {
-      happy: '😊',
-      sad: '😢',
-      excited: '🤩',
-      calm: '😌',
-      anxious: '😰',
-      default: '💭',
+      happy: '🔥',
+      sad: '💀',
+      horny: '🥵',
+      calm: '🌊',
+      anxious: '😵‍💫',
+      default: '👻',
     };
     return moodEmojis[mood.toLowerCase()] || moodEmojis.default;
   }, []);
 
   const getMoodColors = useCallback((mood: string) => {
-    const colors: Record<string, { primary: string; secondary: string; accent: string }> = {
-      happy: { primary: '#FFD700', secondary: '#FFA500', accent: '#FF8C00' },
-      sad: { primary: '#4682B4', secondary: '#5F9EA0', accent: '#6495ED' },
-      excited: { primary: '#FF6347', secondary: '#FF4500', accent: '#FF69B4' },
-      calm: { primary: '#32CD32', secondary: '#90EE90', accent: '#98FB98' },
-      anxious: { primary: '#9932CC', secondary: '#BA55D3', accent: '#DA70D6' },
-      default: { primary: '#007AFF', secondary: '#0056CC', accent: '#4A90E2' },
+    const colors: Record<string, { primary: string; secondary: string; accent: string; gradient: string[] }> = {
+      happy: { 
+        primary: '#FF3B81', 
+        secondary: '#FF6B35', 
+        accent: '#FFD23F',
+        gradient: ['#FF3B81', '#FF6B35', '#FFD23F']
+      },
+      sad: { 
+        primary: '#6B5CE7', 
+        secondary: '#4ECDC4', 
+        accent: '#3D5AFE',
+        gradient: ['#6B5CE7', '#4ECDC4']
+      },
+      horny: { 
+        primary: '#FF1744', 
+        secondary: '#F50057', 
+        accent: '#FF4081',
+        gradient: ['#FF1744', '#F50057', '#FF69B4']
+      },
+      calm: { 
+        primary: '#00D9FF', 
+        secondary: '#00E5A0', 
+        accent: '#7C4DFF',
+        gradient: ['#00D9FF', '#00E5A0']
+      },
+      anxious: { 
+        primary: '#9D00FF', 
+        secondary: '#FF00EA', 
+        accent: '#00F5FF',
+        gradient: ['#9D00FF', '#FF00EA']
+      },
+      default: { 
+        primary: '#1DB954', 
+        secondary: '#1ED760', 
+        accent: '#00E676',
+        gradient: ['#1DB954', '#1ED760']
+      },
     };
     return colors[mood.toLowerCase()] || colors.default;
   }, []);
@@ -443,63 +477,103 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
     const isOptimistic = item.id.startsWith('temp-');
     
     const messageAnim = useRef(new Animated.Value(0)).current;
-    const messageSlide = useRef(new Animated.Value(isMyMessage ? 50 : -50)).current;
+    const messageSlide = useRef(new Animated.Value(isMyMessage ? 80 : -80)).current;
+    const messageScale = useRef(new Animated.Value(0.8)).current;
 
     useEffect(() => {
       Animated.parallel([
-        Animated.timing(messageAnim, {
+        Animated.spring(messageAnim, {
           toValue: 1,
-          duration: 400,
-          delay: index * 50,
+          friction: 8,
+          tension: 40,
           useNativeDriver: true,
         }),
-        Animated.timing(messageSlide, {
+        Animated.spring(messageSlide, {
           toValue: 0,
-          duration: 300,
-          delay: index * 50,
+          friction: 9,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.spring(messageScale, {
+          toValue: 1,
+          friction: 7,
+          tension: 40,
           useNativeDriver: true,
         }),
       ]).start();
-    }, [index, messageAnim, messageSlide]);
+    }, [index, messageAnim, messageSlide, messageScale]);
     
     return (
       <Animated.View
-        style={[
-          styles.messageWrapper,
-          {
-            opacity: messageAnim,
-            transform: [{ translateX: messageSlide }],
-          },
-        ]}
+        style={{
+          width: '100%',
+          paddingHorizontal: 16,
+          paddingVertical: 6,
+          opacity: messageAnim,
+          transform: [
+            { translateX: messageSlide },
+            { scale: messageScale }
+          ],
+        }}
       >
         <View
-          style={[
-            styles.messageContainer,
-            isMyMessage ? styles.myMessage : styles.otherMessage,
-            isOptimistic && styles.optimisticMessage,
-            isMyMessage && { backgroundColor: moodColors.primary },
-          ]}
+          style={{
+            maxWidth: '80%',
+            alignSelf: isMyMessage ? 'flex-end' : 'flex-start',
+            backgroundColor: isMyMessage ? moodColors.primary : '#1E1E1E',
+            borderRadius: 24,
+            padding: 16,
+            shadowColor: isMyMessage ? moodColors.primary : '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 12,
+            elevation: 8,
+            borderWidth: 2,
+            borderColor: isMyMessage ? moodColors.accent + '40' : '#333',
+            opacity: isOptimistic ? 0.6 : 1,
+          }}
         >
-          {/* Message glow effect */}
-          <View style={[
-            styles.messageGlow,
-            isMyMessage 
-              ? { backgroundColor: moodColors.primary + '30' }
-              : { backgroundColor: '#FFFFFF15' }
-          ]} />
+          {/* Gradient overlay for messages */}
+          {isMyMessage && (
+            <View 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: 22,
+                overflow: 'hidden',
+                opacity: 0.15,
+              }}
+            >
+              <View style={{
+                flex: 1,
+                backgroundColor: moodColors.secondary,
+              }} />
+            </View>
+          )}
           
-          <Text style={[
-            styles.messageText,
-            isMyMessage && { color: '#FFFFFF' }
-          ]}>
+          <Text style={{
+            fontSize: 16,
+            lineHeight: 22,
+            color: isMyMessage ? '#FFFFFF' : '#E0E0E0',
+            fontWeight: '500',
+          }}>
             {item.content}
           </Text>
           
-          <View style={styles.messageFooter}>
-            <Text style={[
-              styles.timestamp,
-              isMyMessage && { color: 'rgba(255, 255, 255, 0.8)' }
-            ]}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 6,
+            gap: 6,
+          }}>
+            <Text style={{
+              fontSize: 11,
+              color: isMyMessage ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.5)',
+              fontWeight: '600',
+            }}>
               {new Date(item.created_at).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit'
@@ -507,12 +581,12 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
             </Text>
             {isOptimistic && (
               <Animated.Text 
-                style={[
-                  styles.loadingIndicator,
-                  { opacity: typingAnim }
-                ]}
+                style={{
+                  fontSize: 12,
+                  opacity: typingAnim
+                }}
               >
-                ⏳
+                ⌛
               </Animated.Text>
             )}
           </View>
@@ -523,87 +597,162 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
     return <MessageItem item={item} index={index} currentUserId={currentUserId} />;
-  }, [currentUserId]);
+  }, [currentUserId, moodColors, typingAnim]);
 
-  const headerShine = headerShineAnim.interpolate({
+  const bgRotationInterpolate = bgRotation.interpolate({
     inputRange: [0, 1],
-    outputRange: ['-100%', '100%'],
+    outputRange: ['0deg', '360deg'],
   });
 
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.container}>
-        {/* Animated background pattern */}
-        <View style={styles.backgroundPattern}>
-          {[...Array(20)].map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.backgroundDot,
-                {
-                  left: (i % 5) * (width / 5),
-                  top: Math.floor(i / 5) * (height / 4),
-                  opacity: 0.1,
-                },
-              ]}
-            />
-          ))}
-        </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
+        {/* Animated gradient background */}
+        <Animated.View style={{
+          position: 'absolute',
+          width: width * 2,
+          height: height * 2,
+          left: -width / 2,
+          top: -height / 2,
+          transform: [{ rotate: bgRotationInterpolate }],
+          opacity: 0.1,
+        }}>
+          <View style={{
+            flex: 1,
+            backgroundColor: moodColors.gradient[0],
+          }} />
+          <View style={{
+            position: 'absolute',
+            top: '30%',
+            left: '30%',
+            width: '40%',
+            height: '40%',
+            backgroundColor: moodColors.gradient[1],
+            borderRadius: 9999,
+            opacity: 0.8,
+          }} />
+        </Animated.View>
 
-        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          {/* Enhanced Header */}
-          <View style={styles.header}>
-            <View style={styles.headerBackground}>
-              <Animated.View 
-                style={[
-                  styles.headerShine,
-                  { left: headerShine }
-                ]}
-              />
-            </View>
-            
-            <View style={styles.headerContent}>
-              <View style={styles.titleRow}>
-                <Text style={styles.headerTitle}>✨ Anonymous Chat</Text>
-                <Animated.View 
-                  style={[
-                    styles.connectionIndicator,
-                    {
-                      backgroundColor: (connectionStatus === 'SUBSCRIBED' && !roomEnded) ? '#00FF88' : '#FF6B6B',
-                      transform: [{ scale: pulseAnim }],
-                    },
-                  ]}
-                />
+        <Animated.View style={{
+          flex: 1,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }]
+        }}>
+          {/* Redesigned Header */}
+          <View style={{
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#1A1A1A',
+            backgroundColor: '#0A0A0A',
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <View style={{ flex: 1 }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  marginBottom: 6,
+                }}>
+                  <Animated.Text style={{
+                    fontSize: 32,
+                    transform: [{ scale: borderPulse }],
+                  }}>
+                    {moodEmoji}
+                  </Animated.Text>
+                  <View>
+                    <Text style={{
+                      fontSize: 20,
+                      fontWeight: '800',
+                      color: '#FFFFFF',
+                      letterSpacing: -0.5,
+                    }}>
+                      mystery chat
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '600',
+                      color: moodColors.primary,
+                      textTransform: 'lowercase',
+                    }}>
+                      vibing on {mood}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginTop: 2,
+                }}>
+                  <Animated.View style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: (connectionStatus === 'SUBSCRIBED' && !roomEnded) ? '#00FF88' : '#FF3B81',
+                    transform: [{ scale: pulseAnim }],
+                  }} />
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#888',
+                    textTransform: 'lowercase',
+                  }}>
+                    {roomEnded ? 'rip session 💀' : connectionStatus === 'SUBSCRIBED' ? 'u\'re connected fr' : 'connecting...'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.moodRow}>
-                <Text style={styles.moodEmoji}>{moodEmoji}</Text>
-                <Text style={styles.headerSubtitle}>
-                  {mood} • {roomEnded ? 'Session Ended' : connectionStatus === 'SUBSCRIBED' ? 'Connected' : 'Connecting...'}
+              
+              <TouchableOpacity 
+                style={{
+                  backgroundColor: '#1A1A1A',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  borderColor: moodColors.primary,
+                }}
+                onPress={handleLeaveChat}
+              >
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '800',
+                  color: moodColors.primary,
+                  textTransform: 'lowercase',
+                }}>
+                  dip ✌️
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity 
-              style={[styles.leaveButton, { borderColor: moodColors.accent }]} 
-              onPress={handleLeaveChat}
-            >
-              <Text style={styles.leaveButtonText}>Leave</Text>
-            </TouchableOpacity>
           </View>
 
-          {/* Disconnected/Room Ended Banner */}
+          {/* Session Ended Banner */}
           {(!isConnected || roomEnded) && (
-            <Animated.View style={[styles.disconnectedBanner, { opacity: fadeAnim }]}>
-              <Text style={styles.disconnectedText}>
-                {roomEnded ? '💔 Chat session ended' : '⚠️ Partner disconnected'}
+            <Animated.View style={{
+              backgroundColor: '#FF1744',
+              paddingVertical: 14,
+              alignItems: 'center',
+              opacity: fadeAnim,
+            }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '800',
+                color: '#FFFFFF',
+                textTransform: 'lowercase',
+              }}>
+                {roomEnded ? '💀 chat died' : '⚠️ they ghosted you'}
               </Text>
-              <View style={styles.disconnectedPulse} />
             </Animated.View>
           )}
 
           <KeyboardAvoidingView 
-            style={styles.keyboardContainer}
+            style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
           >
@@ -613,8 +762,11 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
               data={isUserLoaded ? messages : []}
               keyExtractor={(item) => item.id}
               renderItem={renderMessage}
-              style={styles.messagesList}
-              contentContainerStyle={styles.messagesContainer}
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingVertical: 16,
+                paddingBottom: 24,
+              }}
               showsVerticalScrollIndicator={false}
               onLayout={() => {
                 setTimeout(() => {
@@ -624,22 +776,40 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
             />
 
             {/* Enhanced Input */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputBackground}>
-                <View style={styles.inputGlow} />
-              </View>
-              
-              <View style={styles.inputWrapper}>
-                <View style={styles.textInputContainer}>
+            <View style={{
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+              backgroundColor: '#0A0A0A',
+              borderTopWidth: 1,
+              borderTopColor: '#1A1A1A',
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                gap: 12,
+              }}>
+                <View style={{
+                  flex: 1,
+                  backgroundColor: '#1A1A1A',
+                  borderRadius: 24,
+                  borderWidth: 2,
+                  borderColor: newMessage.trim() ? moodColors.primary : '#2A2A2A',
+                  overflow: 'hidden',
+                }}>
                   <TextInput
-                    style={[
-                      styles.textInput,
-                      roomEnded && { opacity: 0.5 }
-                    ]}
+                    style={{
+                      fontSize: 16,
+                      color: '#FFFFFF',
+                      paddingHorizontal: 20,
+                      paddingVertical: 14,
+                      maxHeight: 120,
+                      fontWeight: '500',
+                    }}
                     value={newMessage}
                     onChangeText={setNewMessage}
-                    placeholder={roomEnded ? "Chat session ended..." : "Type a message..."}
-                    placeholderTextColor="#888"
+                    placeholder={roomEnded ? "chat's dead..." : "type sum..."}
+                    placeholderTextColor="#555"
                     multiline
                     editable={isConnected && !roomEnded}
                     returnKeyType="send"
@@ -647,28 +817,44 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                     blurOnSubmit={false}
                   />
                   {newMessage.trim() && !roomEnded && (
-                    <Animated.View 
-                      style={[
-                        styles.typingIndicator,
-                        { opacity: typingAnim }
-                      ]}
-                    >
-                      <Text style={styles.typingDots}>💬</Text>
+                    <Animated.View style={{
+                      position: 'absolute',
+                      right: 16,
+                      bottom: 16,
+                      opacity: typingAnim,
+                    }}>
+                      <Text style={{ fontSize: 18 }}>✍️</Text>
                     </Animated.View>
                   )}
                 </View>
                 
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    { backgroundColor: moodColors.primary },
-                    (!isConnected || !newMessage.trim() || roomEnded) && styles.sendButtonDisabled
-                  ]}
-                  onPress={handleSendMessage}
-                  disabled={!isConnected || !newMessage.trim() || roomEnded}
-                >
-                  <Text style={styles.sendButtonText}>🚀</Text>
-                </TouchableOpacity>
+                <Animated.View style={{
+                  transform: [{ scale: newMessage.trim() && !roomEnded ? borderPulse : 1 }],
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      width: 54,
+                      height: 54,
+                      borderRadius: 27,
+                      backgroundColor: (!isConnected || !newMessage.trim() || roomEnded) 
+                        ? '#2A2A2A' 
+                        : moodColors.primary,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: moodColors.primary,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: newMessage.trim() ? 0.5 : 0,
+                      shadowRadius: 12,
+                      elevation: newMessage.trim() ? 8 : 0,
+                    }}
+                    onPress={handleSendMessage}
+                    disabled={!isConnected || !newMessage.trim() || roomEnded}
+                  >
+                    <Text style={{ fontSize: 24 }}>
+                      {newMessage.trim() && !roomEnded ? '⚡' : '💬'}
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -679,8 +865,3 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 };
 
 export default Chat;
-
-
-
-
-

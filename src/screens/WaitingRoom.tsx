@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   View,
@@ -34,29 +33,40 @@ interface Props {
 const { width, height } = Dimensions.get('window');
 
 const moodEmojis: { [key: string]: string } = {
-  happy: '😊',
-  sad: '😢',
-  excited: '🤩',
-  anxious: '😰',
-  calm: '😌',
-  angry: '😠',
+  happy: '✨',
+  sad: '💔',
+  horny: '🔥',
+  anxious: '💀',
+  calm: '🌊',
+  angry: '😈',
 };
 
 const moodColors: { [key: string]: readonly [string, string] } = {
-  happy: ['#FFD93D', '#FFED4E'] as const,
-  sad: ['#6BB6FF', '#9DCEFF'] as const,
-  excited: ['#FF6B6B', '#FF8E8E'] as const,
-  anxious: ['#DDA0DD', '#E6B8E6'] as const,
-  calm: ['#98FB98', '#B8FFB8'] as const,
-  angry: ['#FF4500', '#FF6B2B'] as const,
+  happy: ['#FF6B9D', '#FEC163'] as const,
+  sad: ['#4158D0', '#C850C0'] as const,
+  horny: ['#FF0080', '#FF8C00'] as const,
+  anxious: ['#8B5CF6', '#EC4899'] as const,
+  calm: ['#06B6D4', '#3B82F6'] as const,
+  angry: ['#DC2626', '#F59E0B'] as const,
+};
+
+const moodLabels: { [key: string]: string } = {
+  happy: 'vibing',
+  sad: 'down bad',
+  horny: 'feeling spicy',
+  anxious: 'overthinking',
+  calm: 'chilling',
+  angry: 'on demon time',
 };
 
 export default function WaitingRoom({ navigation, route }: Props) {
-  const { mood } = route.params;
+  // Map old "excited" to new "horny" for backwards compatibility
+  const rawMood = route.params.mood;
+  const mood = rawMood === 'excited' ? 'horny' : rawMood;
   const [isWaiting, setIsWaiting] = React.useState(true);
   const [currentUserId, setCurrentUserId] = React.useState<string>('');
   const [currentRoomId, setCurrentRoomId] = React.useState<string>('');
-  const [searchStatus, setSearchStatus] = React.useState('Initializing...');
+  const [searchStatus, setSearchStatus] = React.useState('loading your vibe...');
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const subscriptionRef = React.useRef<RealtimeChannel | null>(null);
   const pollIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -65,93 +75,95 @@ export default function WaitingRoom({ navigation, route }: Props) {
   // Animation values
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(50)).current;
-  const dotsAnim = React.useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
-  const rippleAnim = React.useRef(new Animated.Value(0)).current;
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const bounceAnim = React.useRef(new Animated.Value(0)).current;
+  const glowAnim = React.useRef(new Animated.Value(0)).current;
+  const floatAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     // Initial entrance animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 600,
         useNativeDriver: true,
       }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
+      Animated.spring(bounceAnim, {
+        toValue: 1,
+        friction: 4,
+        tension: 40,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Continuous pulse animation
+    // Continuous rotation
+    const rotateAnimation = Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: true,
+      })
+    );
+    rotateAnimation.start();
+
+    // Pulse glow
+    const glowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    glowAnimation.start();
+
+    // Float animation
+    const floatAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    floatAnimation.start();
+
+    // Pulse scale
     const pulseAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1000,
+          toValue: 1.05,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
     );
     pulseAnimation.start();
 
-    // Animated dots
-    const animateDots = () => {
-      const staggerDelay = 200;
-      const animations = dotsAnim.map((anim, index) =>
-        Animated.loop(
-          Animated.sequence([
-            Animated.delay(index * staggerDelay),
-            Animated.timing(anim, {
-              toValue: 1,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(anim, {
-              toValue: 0.3,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-          ])
-        )
-      );
-      Animated.parallel(animations).start();
-    };
-    animateDots();
-
-    // Ripple effect
-    const rippleAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(rippleAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rippleAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    rippleAnimation.start();
-
     return () => {
       isMountedRef.current = false;
+      rotateAnimation.stop();
+      glowAnimation.stop();
+      floatAnimation.stop();
       pulseAnimation.stop();
-      rippleAnimation.stop();
       
-      // Clean up subscriptions and intervals
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
       }
@@ -180,9 +192,8 @@ export default function WaitingRoom({ navigation, route }: Props) {
     const findMatchOrCreateRoom = async () => {
       try {
         console.log(`🔍 Searching room for mood: ${mood}, user: ${currentUserId}`);
-        setSearchStatus('Scanning for matches...');
+        setSearchStatus('scanning the vibe check...');
 
-        // Step 1: Check if this user already has ANY room (as user1 OR user2)
         const { data: existingRoom, error: existingError } = await supabase
           .from('rooms')
           .select('*')
@@ -198,19 +209,18 @@ export default function WaitingRoom({ navigation, route }: Props) {
           setCurrentRoomId(existingRoom.id);
           if (existingRoom.status === 'active') {
             setIsWaiting(false);
-            setSearchStatus('Match found! Connecting...');
+            setSearchStatus('match incoming! 🚀');
             if (isMountedRef.current) {
               navigation.replace('Chat', { roomId: existingRoom.id, mood });
             }
             return;
           }
           setupRoomListener(existingRoom.id);
-          setSearchStatus('Waiting for someone to join...');
+          setSearchStatus('waiting for someone to slide in...');
           return;
         }
 
-        // Step 2: Try to join an available waiting room
-        setSearchStatus('Looking for available rooms...');
+        setSearchStatus('looking for your twin flame...');
         const { data: waitingRooms, error: searchError } = await supabase
           .from('rooms')
           .select('*')
@@ -229,9 +239,8 @@ export default function WaitingRoom({ navigation, route }: Props) {
 
         if (waitingRooms && waitingRooms.length > 0) {
           const waitingRoom = waitingRooms[0];
-          setSearchStatus('Joining room...');
+          setSearchStatus('found someone! joining now...');
           
-          // Use more specific conditions to avoid race conditions
           const { data: updatedRoom, error: updateError } = await supabase
             .from('rooms')
             .update({
@@ -242,13 +251,13 @@ export default function WaitingRoom({ navigation, route }: Props) {
             .eq('id', waitingRoom.id)
             .eq('status', 'waiting')
             .is('user2_id', null)
-            .neq('user1_id', currentUserId) // Ensure we don't join our own room
+            .neq('user1_id', currentUserId)
             .select()
             .maybeSingle();
 
           if (!updateError && updatedRoom) {
             setIsWaiting(false);
-            setSearchStatus('Connected! Starting chat...');
+            setSearchStatus('you\'re in! let\'s go 💬');
             if (isMountedRef.current) {
               navigation.replace('Chat', { roomId: updatedRoom.id, mood });
             }
@@ -258,8 +267,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
           }
         }
 
-        // Step 3: Create new room
-        setSearchStatus('Creating your room...');
+        setSearchStatus('creating your space...');
         const { data: newRoom, error: createError } = await supabase
           .from('rooms')
           .insert({
@@ -279,7 +287,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
 
         setCurrentRoomId(newRoom.id);
         setupRoomListener(newRoom.id);
-        setSearchStatus('Room created! Waiting for someone...');
+        setSearchStatus('room ready! waiting for your match...');
 
       } catch (err) {
         console.error('❌ Unexpected error:', err);
@@ -290,17 +298,14 @@ export default function WaitingRoom({ navigation, route }: Props) {
     const setupRoomListener = (roomId: string) => {
       console.log('🔗 Setting up room listener for:', roomId);
       
-      // Clean up existing subscription
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
       }
       
-      // Clean up existing poll interval
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
 
-      // Create unique channel name to avoid conflicts
       const channelName = `waiting_room_${roomId}_${currentUserId}_${Date.now()}`;
       
       const subscription = supabase
@@ -325,14 +330,12 @@ export default function WaitingRoom({ navigation, route }: Props) {
             if (updatedRoom.status === 'active' && updatedRoom.user2_id && isMountedRef.current) {
               console.log('✅ Room became active, navigating to chat...');
               setIsWaiting(false);
-              setSearchStatus('Someone joined! Starting chat...');
+              setSearchStatus('someone slid in! 🎉');
               
-              // Clear timeout once match is found
               if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
               }
               
-              // Navigate with a small delay to ensure state updates
               setTimeout(() => {
                 if (isMountedRef.current) {
                   navigation.replace('Chat', { roomId: updatedRoom.id, mood });
@@ -350,7 +353,6 @@ export default function WaitingRoom({ navigation, route }: Props) {
 
       subscriptionRef.current = subscription;
 
-      // Backup polling mechanism
       pollIntervalRef.current = setInterval(async () => {
         try {
           const { data: room, error } = await supabase
@@ -360,16 +362,14 @@ export default function WaitingRoom({ navigation, route }: Props) {
             .single();
 
           if (error) {
-            // console.error('Error polling room:', error);
             return;
           }
 
           if (room?.status === 'active' && room.user2_id && isMountedRef.current) {
             console.log('🔄 Polling detected active room, navigating...');
             setIsWaiting(false);
-            setSearchStatus('Match found via polling! Connecting...');
+            setSearchStatus('match locked in! 🔒');
             
-            // Clear interval and timeout
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
             }
@@ -387,12 +387,11 @@ export default function WaitingRoom({ navigation, route }: Props) {
         } catch (error) {
           console.error('Error in room polling:', error);
         }
-      }, 1500); // Poll every 1.5 seconds as backup
+      }, 1500);
     };
 
     findMatchOrCreateRoom();
 
-    // Set random timeout (1 to 3 minutes)
     const timeoutMinutes = Math.floor(Math.random() * 3) + 1;
     const timeoutDuration = timeoutMinutes * 60 * 1000;
     console.log(`⏳ Timeout set for ${timeoutMinutes} minute(s)`);
@@ -401,11 +400,11 @@ export default function WaitingRoom({ navigation, route }: Props) {
       if (isWaiting && isMountedRef.current) {
         console.log('⏱️ Timeout reached. Cancelling room.');
         Alert.alert(
-          'No match found',
-          'Could not find a match in time. Please try again.',
+          'no cap, no one showed up 😔',
+          'couldn\'t find your vibe twin rn. wanna try again?',
           [
             {
-              text: 'Okay',
+              text: 'yeah let\'s go',
               onPress: handleCancel,
             },
           ]
@@ -414,7 +413,6 @@ export default function WaitingRoom({ navigation, route }: Props) {
     }, timeoutDuration);
 
     return () => {
-      // Cleanup function
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
       }
@@ -430,7 +428,6 @@ export default function WaitingRoom({ navigation, route }: Props) {
   const handleCancel = async () => {
     try {
       if (currentUserId && currentRoomId) {
-        // Delete the room if we're user1 and it's still waiting
         await supabase
           .from('rooms')
           .delete()
@@ -447,11 +444,26 @@ export default function WaitingRoom({ navigation, route }: Props) {
     }
   };
 
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -20],
+  });
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
   return (
     <>
       <StatusBar barStyle="light-content" />
       <LinearGradient
-        colors={['#0F0F23', '#1A1A2E', '#16213E']}
+        colors={['#0a0a0a', '#1a0a1f', '#0f0520']}
         style={styles.container}
       >
         <SafeAreaView style={styles.safeArea}>
@@ -460,151 +472,174 @@ export default function WaitingRoom({ navigation, route }: Props) {
               styles.content,
               {
                 opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
+                transform: [{ scale: bounceAnim }],
               },
             ]}
           >
-            {/* Animated Background Circles */}
+            {/* Floating gradient orbs */}
             <View style={styles.backgroundElements}>
               <Animated.View 
                 style={[
-                  styles.ripple1,
+                  styles.orb1,
                   {
-                    opacity: rippleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.1, 0],
-                    }),
-                    transform: [{
-                      scale: rippleAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 3],
-                      }),
-                    }],
+                    opacity: glowOpacity,
+                    transform: [
+                      { translateY: floatY },
+                      { rotate: spin },
+                    ],
                   },
                 ]}
-              />
+              >
+                <LinearGradient
+                  colors={moodColors[mood] || ['#FF0080', '#FF8C00']}
+                  style={styles.orbGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+              </Animated.View>
+              
               <Animated.View 
                 style={[
-                  styles.ripple2,
+                  styles.orb2,
                   {
-                    opacity: rippleAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [0, 0.15, 0],
+                    opacity: glowAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.2, 0.5],
                     }),
-                    transform: [{
-                      scale: rippleAnim.interpolate({
+                    transform: [
+                      { translateY: floatAnim.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [1, 2.5],
-                      }),
-                    }],
+                        outputRange: [0, 15],
+                      })},
+                    ],
                   },
                 ]}
-              />
+              >
+                <LinearGradient
+                  colors={['#8B5CF6', '#EC4899']}
+                  style={styles.orbGradient}
+                  start={{ x: 1, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                />
+              </Animated.View>
             </View>
 
             {/* Main Content */}
             <View style={styles.mainContent}>
-              {/* Mood Display */}
+              {/* Status badge at top */}
+              <View style={styles.topBadge}>
+                <BlurView intensity={40} style={styles.badgeBlur}>
+                  <Text style={styles.badgeText}>
+                    {isWaiting ? '🔍 searching...' : '✨ matched!'}
+                  </Text>
+                </BlurView>
+              </View>
+
+              {/* Giant mood emoji with glow */}
               <Animated.View 
                 style={[
-                  styles.moodContainer,
-                  { transform: [{ scale: pulseAnim }] },
+                  styles.emojiContainer,
+                  {
+                    transform: [
+                      { scale: pulseAnim },
+                      { rotate: rotateAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['-5deg', '5deg'],
+                      })},
+                    ],
+                  },
                 ]}
               >
-                <BlurView intensity={20} style={styles.moodBlur}>
+                <Animated.View style={[styles.emojiGlow, { opacity: glowOpacity }]}>
                   <LinearGradient
-                    colors={moodColors[mood] || ['#6C5CE7', '#A29BFE']}
-                    style={styles.moodGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={styles.moodContent}>
-                      <Text style={styles.moodEmoji}>
-                        {moodEmojis[mood] || '😊'}
-                      </Text>
-                      <Text style={styles.moodText}>{mood}</Text>
-                    </View>
-                  </LinearGradient>
-                </BlurView>
+                    colors={[...moodColors[mood], 'transparent']}
+                    style={styles.glowGradient}
+                  />
+                </Animated.View>
+                <Text style={styles.giantEmoji}>
+                  {moodEmojis[mood] || '✨'}
+                </Text>
               </Animated.View>
 
-              {/* Status Text */}
-              <View style={styles.statusContainer}>
-                <Text style={styles.title}>
-                  {isWaiting ? 'Finding Your Match' : 'Match Found!'}
+              {/* Mood label with glassmorphism */}
+              <View style={styles.moodLabelContainer}>
+                <BlurView intensity={30} style={styles.moodLabelBlur}>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                    style={styles.moodLabelGradient}
+                  >
+                    <Text style={styles.moodLabel}>
+                      {moodLabels[mood] || mood}
+                    </Text>
+                  </LinearGradient>
+                </BlurView>
+              </View>
+
+              {/* Status text with animated typing effect */}
+              <View style={styles.statusTextContainer}>
+                <Text style={styles.statusTitle}>
+                  {isWaiting ? 'finding ur vibe twin' : 'ur match is here!'}
                 </Text>
-                <Text style={styles.subtitle}>{searchStatus}</Text>
-                
-                {/* Animated Dots */}
-                {isWaiting && (
-                  <View style={styles.dotsContainer}>
-                    {dotsAnim.map((anim, index) => (
-                      <Animated.View
-                        key={index}
-                        style={[
-                          styles.dot,
-                          {
-                            opacity: anim,
-                            transform: [{
-                              scale: anim.interpolate({
-                                inputRange: [0.3, 1],
-                                outputRange: [0.8, 1.2],
-                              }),
-                            }],
-                          },
-                        ]}
+                <Text style={styles.statusSubtitle}>
+                  {searchStatus}
+                </Text>
+              </View>
+
+              {/* Loading bar with gradient */}
+              {isWaiting && (
+                <View style={styles.loadingBarContainer}>
+                  <View style={styles.loadingBarTrack}>
+                    <Animated.View 
+                      style={[
+                        styles.loadingBarFill,
+                        {
+                          transform: [{
+                            translateX: rotateAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [-width, width * 0.5],
+                            }),
+                          }],
+                        },
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={moodColors[mood] || ['#FF0080', '#FF8C00']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.loadingGradient}
                       />
-                    ))}
+                    </Animated.View>
                   </View>
-                )}
-              </View>
-
-              {/* Progress Indicator */}
-              <View style={styles.progressContainer}>
-                <View style={styles.progressTrack}>
-                  <Animated.View 
-                    style={[
-                      styles.progressFill,
-                      {
-                        transform: [{
-                          scaleX: rippleAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.2, 0.8],
-                          }),
-                        }],
-                      },
-                    ]}
-                  />
+                  <Text style={styles.loadingText}>
+                    hold up, we're cooking 👨‍🍳
+                  </Text>
                 </View>
-                <Text style={styles.progressText}>
-                  Connecting you with someone special...
-                </Text>
-              </View>
+              )}
 
-              {/* Cancel Button */}
+              {/* Cancel button with bold style */}
               {isWaiting && (
                 <TouchableOpacity 
                   style={styles.cancelButton} 
                   onPress={handleCancel}
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                 >
-                  <BlurView intensity={10} style={styles.cancelBlur}>
-                    <LinearGradient
-                      colors={['rgba(255, 68, 68, 0.8)', 'rgba(255, 107, 107, 0.8)']}
-                      style={styles.cancelGradient}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel Search</Text>
-                    </LinearGradient>
-                  </BlurView>
+                  <LinearGradient
+                    colors={['#FF1744', '#F50057']}
+                    style={styles.cancelGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.cancelButtonText}>nah i'm out</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* Bottom Decoration */}
-            <View style={styles.bottomDecoration}>
-              <View style={styles.decorativeLine} />
-              <Text style={styles.decorativeText}>✨</Text>
-              <View style={styles.decorativeLine} />
+            {/* Bottom hint */}
+            <View style={styles.bottomHint}>
+              <Text style={styles.hintText}>
+                💬 get ready to spill the tea
+              </Text>
             </View>
           </Animated.View>
         </SafeAreaView>
@@ -613,7 +648,6 @@ export default function WaitingRoom({ navigation, route }: Props) {
   );
 }
 
-// You'll need to add these styles to your existing styles object
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -623,7 +657,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   backgroundElements: {
     position: 'absolute',
@@ -632,135 +665,170 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  ripple1: {
+  orb1: {
     position: 'absolute',
-    top: height * 0.2,
-    left: width * 0.1,
+    top: height * 0.15,
+    right: -50,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    overflow: 'hidden',
+  },
+  orb2: {
+    position: 'absolute',
+    bottom: height * 0.2,
+    left: -80,
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#6C5CE7',
+    overflow: 'hidden',
   },
-  ripple2: {
-    position: 'absolute',
-    bottom: height * 0.3,
-    right: width * 0.1,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#A29BFE',
+  orbGradient: {
+    flex: 1,
   },
   mainContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  moodContainer: {
-    marginBottom: 40,
-  },
-  moodBlur: {
-    borderRadius: 25,
+  topBadge: {
+    position: 'absolute',
+    top: 60,
+    alignSelf: 'center',
+    borderRadius: 20,
     overflow: 'hidden',
   },
-  moodGradient: {
-    paddingHorizontal: 30,
-    paddingVertical: 20,
+  badgeBlur: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  moodContent: {
-    alignItems: 'center',
-  },
-  moodEmoji: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  moodText: {
-    fontSize: 18,
-    fontWeight: '600',
+  badgeText: {
     color: 'white',
-    textTransform: 'capitalize',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'lowercase',
   },
-  statusContainer: {
+  emojiContainer: {
     alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  dotsContainer: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 30,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#6C5CE7',
-    marginHorizontal: 4,
+  emojiGlow: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
   },
-  progressContainer: {
+  glowGradient: {
+    flex: 1,
+    borderRadius: 110,
+  },
+  giantEmoji: {
+    fontSize: 120,
+    textAlign: 'center',
+  },
+  moodLabelContainer: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    marginBottom: 40,
+  },
+  moodLabelBlur: {
+    borderRadius: 30,
+  },
+  moodLabelGradient: {
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  moodLabel: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: 'white',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    textTransform: 'lowercase',
+  },
+  statusTextContainer: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  progressTrack: {
-    width: width * 0.7,
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 2,
+  statusTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: 'white',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    textTransform: 'lowercase',
+  },
+  statusSubtitle: {
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  loadingBarContainer: {
+    alignItems: 'center',
+    marginBottom: 50,
+    width: '100%',
+  },
+  loadingBarTrack: {
+    width: width * 0.75,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 16,
   },
-  progressFill: {
+  loadingBarFill: {
     height: '100%',
-    backgroundColor: '#6C5CE7',
-    borderRadius: 2,
+    width: width * 0.4,
   },
-  progressText: {
+  loadingGradient: {
+    flex: 1,
+  },
+  loadingText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '600',
+    textTransform: 'lowercase',
   },
   cancelButton: {
-    borderRadius: 25,
+    borderRadius: 30,
     overflow: 'hidden',
-  },
-  cancelBlur: {
-    borderRadius: 25,
+    elevation: 8,
+    shadowColor: '#FF1744',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   cancelGradient: {
-    paddingHorizontal: 30,
-    paddingVertical: 15,
+    paddingHorizontal: 40,
+    paddingVertical: 18,
+    borderRadius: 30,
   },
   cancelButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '800',
     textAlign: 'center',
+    textTransform: 'lowercase',
+    letterSpacing: 0.5,
   },
-  bottomDecoration: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 20,
+  bottomHint: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
   },
-  decorativeLine: {
-    width: 40,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  decorativeText: {
-    fontSize: 16,
-    marginHorizontal: 15,
-    color: 'rgba(255, 255, 255, 0.5)',
+  hintText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontWeight: '600',
+    textTransform: 'lowercase',
   },
 });
