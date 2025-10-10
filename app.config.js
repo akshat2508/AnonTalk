@@ -58,7 +58,7 @@ export default {
   expo: {
     name: "anontalk",
     slug: "anontalk",
-    version: "1.0.3",
+    version: "1.0.4",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
