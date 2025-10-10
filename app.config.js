@@ -58,7 +58,7 @@ export default {
   expo: {
     name: "anontalk",
     slug: "anontalk",
-    version: "1.0.2",
+    version: "1.0.3",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -73,9 +73,11 @@ export default {
     updates: {
       url: "https://u.expo.dev/f94358f3-182f-411c-978e-30fbbe5c999a"
     },
-    runtimeVersion: {
-      policy: "appVersion"
-    },
+    // runtimeVersion: {
+    //   policy: "appVersion"
+    // },
+      runtimeVersion: "1.0.3",
+
 
     ios: {
       supportsTablet: true
@@ -97,16 +99,18 @@ export default {
         projectId: "f94358f3-182f-411c-978e-30fbbe5c999a"
       }
     },
-    plugins: [
-      [
-        "expo-build-properties",
-        {
-          android: {
-            enableProguardInReleaseBuilds: true,
-            enableShrinkResourcesInReleaseBuilds: true
-          }
-        }
-      ]
-    ]
+   "plugins": [
+  [
+    "expo-build-properties",
+    {
+      "android": {
+        "enableProguardInReleaseBuilds": true,
+        "enableShrinkResourcesInReleaseBuilds": true
+      }
+    }
+  ],
+  "expo-font"
+]
+
   }
 };
