@@ -45,12 +45,12 @@ interface Props {
 const { width, height } = Dimensions.get('window');
 
 const moods: { key: Mood; emoji: string; label: string; colors: readonly [string, string]; gradient: readonly [string, string, string] }[] = [
-  { key: 'happy', emoji: '✨', label: 'vibing', colors: ['#FFD93D', '#FFED4E'] as const, gradient: ['#FEE140', '#FA709A', '#FEE140'] as const },
-  { key: 'sad', emoji: '💔', label: 'down bad', colors: ['#6BB6FF', '#9DCEFF'] as const, gradient: ['#667EEA', '#764BA2', '#667EEA'] as const },
-  { key: 'excited', emoji: '🤤', label: 'spicy', colors: ['#FF6B6B', '#FF8E8E'] as const, gradient: ['#FF0844', '#FF6B6B', '#FF0844'] as const },
-  { key: 'anxious', emoji: '😵‍💫', label: 'lowkey stressed', colors: ['#DDA0DD', '#E6B8E6'] as const, gradient: ['#A8EDEA', '#FED6E3', '#A8EDEA'] as const },
-  { key: 'calm', emoji: '🌿', label: 'chill fr', colors: ['#98FB98', '#B8FFB8'] as const, gradient: ['#56CCF2', '#2F80ED', '#56CCF2'] as const },
-  { key: 'angry', emoji: '😤', label: 'big mad', colors: ['#FF4500', '#FF6B2B'] as const, gradient: ['#F85032', '#E73827', '#F85032'] as const },
+  { key: 'happy', emoji: '✨', label: 'Vibing', colors: ['#FFD93D', '#FFED4E'] as const, gradient: ['#FEE140', '#FA709A', '#FEE140'] as const },
+  { key: 'sad', emoji: '💔', label: 'Down Bad', colors: ['#6BB6FF', '#9DCEFF'] as const, gradient: ['#667EEA', '#764BA2', '#667EEA'] as const },
+  { key: 'excited', emoji: '🤤', label: 'Spicy', colors: ['#FF6B6B', '#FF8E8E'] as const, gradient: ['#FF0844', '#FF6B6B', '#FF0844'] as const },
+  { key: 'anxious', emoji: '😵‍💫', label: 'Lowkey Stressed', colors: ['#DDA0DD', '#E6B8E6'] as const, gradient: ['#A8EDEA', '#FED6E3', '#A8EDEA'] as const },
+  { key: 'calm', emoji: '🌿', label: 'Chill Fr', colors: ['#98FB98', '#B8FFB8'] as const, gradient: ['#56CCF2', '#2F80ED', '#56CCF2'] as const },
+  { key: 'angry', emoji: '😤', label: 'Big Mad', colors: ['#FF4500', '#FF6B2B'] as const, gradient: ['#F85032', '#E73827', '#F85032'] as const },
 ];
 
 export default function Onboarding({ navigation }: Props) {
@@ -373,12 +373,12 @@ export default function Onboarding({ navigation }: Props) {
                   end={{ x: 1, y: 1 }}
                   style={styles.feedbackGradient}
                 >
-                  <Text style={styles.feedbackButtonText}>💬 spill tea</Text>
+                  <Text style={styles.feedbackButtonText}>💬 Spill Tea</Text>
                 </LinearGradient>
               </TouchableOpacity>
               
               <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                <Text style={styles.title}>anonTalk</Text>
+                <Text style={styles.title}>AnonTalk</Text>
                 <View style={styles.titleAccent}>
                   <LinearGradient
                     colors={['#FF0844', '#FF6B6B', '#FFB199']}
@@ -389,9 +389,9 @@ export default function Onboarding({ navigation }: Props) {
                 </View>
               </Animated.View>
               
-              <Text style={styles.subtitle}>what's the vibe rn? 👀</Text>
+              <Text style={styles.subtitle}>What's the vibe rn? 👀</Text>
               <Text style={styles.description}>
-                find ur ppl. no cap 💯
+                Find ur ppl. No Cap 💯
               </Text>
             </View>
             
@@ -464,7 +464,7 @@ export default function Onboarding({ navigation }: Props) {
 
             {/* Footer Indicator */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>tap ur mood ⚡</Text>
+              <Text style={styles.footerText}>Tap Ur Mood ⚡</Text>
             </View>
           </Animated.View>
         </SafeAreaView>
@@ -488,7 +488,7 @@ export default function Onboarding({ navigation }: Props) {
             >
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>spill the tea ☕</Text>
+                  <Text style={styles.modalTitle}>Spill The Tea ☕</Text>
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={handleCloseFeedbackModal}
@@ -497,17 +497,17 @@ export default function Onboarding({ navigation }: Props) {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.ratingLabel}>rate the vibe fr</Text>
+                <Text style={styles.ratingLabel}>Rate The Vibe Fr</Text>
                 {renderStars()}
 
-                <Text style={styles.feedbackLabel}>tell us everything bestie:</Text>
+                <Text style={styles.feedbackLabel}>Tell Us Everything Bestie:</Text>
                 <TextInput
                   style={styles.feedbackInput}
                   multiline
                   numberOfLines={6}
                   value={feedbackText}
                   onChangeText={setFeedbackText}
-                  placeholder="no filter zone... be honest 💯"
+                  placeholder="No Filter Zone... Be Honest 💯"
                   placeholderTextColor="#8B7BA8"
                   textAlignVertical="top"
                 />
@@ -552,6 +552,7 @@ export default function Onboarding({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 40
   },
   safeArea: {
     flex: 1,

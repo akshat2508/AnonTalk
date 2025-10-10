@@ -51,12 +51,12 @@ const moodColors: { [key: string]: readonly [string, string] } = {
 };
 
 const moodLabels: { [key: string]: string } = {
-  happy: 'vibing',
-  sad: 'down bad',
-  horny: 'feeling spicy',
-  anxious: 'overthinking',
-  calm: 'chilling',
-  angry: 'on demon time',
+  happy: 'Vibing',
+  sad: 'Down Bad',
+  horny: 'Feeling Spicy',
+  anxious: 'Overthinking',
+  calm: 'Chilling',
+  angry: 'On Demon Time',
 };
 
 export default function WaitingRoom({ navigation, route }: Props) {
@@ -209,14 +209,14 @@ export default function WaitingRoom({ navigation, route }: Props) {
           setCurrentRoomId(existingRoom.id);
           if (existingRoom.status === 'active') {
             setIsWaiting(false);
-            setSearchStatus('match incoming! 🚀');
+            setSearchStatus('Match Incoming! 🚀');
             if (isMountedRef.current) {
               navigation.replace('Chat', { roomId: existingRoom.id, mood });
             }
             return;
           }
           setupRoomListener(existingRoom.id);
-          setSearchStatus('waiting for someone to slide in...');
+          setSearchStatus('Waiting for Someone to Slide in...');
           return;
         }
 
@@ -368,7 +368,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
           if (room?.status === 'active' && room.user2_id && isMountedRef.current) {
             console.log('🔄 Polling detected active room, navigating...');
             setIsWaiting(false);
-            setSearchStatus('match locked in! 🔒');
+            setSearchStatus('Match locked in! 🔒');
             
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
@@ -404,7 +404,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
           'couldn\'t find your vibe twin rn. wanna try again?',
           [
             {
-              text: 'yeah let\'s go',
+              text: 'Yeah Let\'s go',
               onPress: handleCancel,
             },
           ]
@@ -530,7 +530,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
               <View style={styles.topBadge}>
                 <BlurView intensity={40} style={styles.badgeBlur}>
                   <Text style={styles.badgeText}>
-                    {isWaiting ? '🔍 searching...' : '✨ matched!'}
+                    {isWaiting ? '🔍 Searching...' : '✨ Matched!'}
                   </Text>
                 </BlurView>
               </View>
@@ -578,7 +578,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
               {/* Status text with animated typing effect */}
               <View style={styles.statusTextContainer}>
                 <Text style={styles.statusTitle}>
-                  {isWaiting ? 'finding ur vibe twin' : 'ur match is here!'}
+                  {isWaiting ? 'Finding ur vibe twin' : 'Ur match is here!'}
                 </Text>
                 <Text style={styles.statusSubtitle}>
                   {searchStatus}
@@ -611,7 +611,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
                     </Animated.View>
                   </View>
                   <Text style={styles.loadingText}>
-                    hold up, we're cooking 👨‍🍳
+                    Hold up, we're cooking 👨‍🍳
                   </Text>
                 </View>
               )}
@@ -629,7 +629,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <Text style={styles.cancelButtonText}>nah i'm out</Text>
+                    <Text style={styles.cancelButtonText}>Nah I'm Out</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               )}
@@ -638,7 +638,7 @@ export default function WaitingRoom({ navigation, route }: Props) {
             {/* Bottom hint */}
             <View style={styles.bottomHint}>
               <Text style={styles.hintText}>
-                💬 get ready to spill the tea
+                💬 Get Ready To Spill The Tea
               </Text>
             </View>
           </Animated.View>

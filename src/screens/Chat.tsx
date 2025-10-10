@@ -672,7 +672,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                       color: '#FFFFFF',
                       letterSpacing: -0.5,
                     }}>
-                      mystery chat
+                      Mystery Chat
                     </Text>
                     <Text style={{
                       fontSize: 13,
@@ -680,7 +680,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                       color: moodColors.primary,
                       textTransform: 'lowercase',
                     }}>
-                      vibing on {mood}
+                      Vibing On {mood}
                     </Text>
                   </View>
                 </View>
