@@ -527,13 +527,13 @@ export default function WaitingRoom({ navigation, route }: Props) {
             {/* Main Content */}
             <View style={styles.mainContent}>
               {/* Status badge at top */}
-              <View style={styles.topBadge}>
+              {/* <View style={styles.topBadge}>
                 <BlurView intensity={40} style={styles.badgeBlur}>
-                  <Text style={styles.badgeText}>
-                    {isWaiting ? '🔍 Searching...' : '✨ Matched!'}
+                  <Text>
+
                   </Text>
                 </BlurView>
-              </View>
+              </View> */}
 
               {/* Giant mood emoji with glow */}
               <Animated.View 
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     letterSpacing: 0.5,
-    textTransform: 'lowercase',
+    textTransform:'capitalize'
   },
   statusTextContainer: {
     alignItems: 'center',
@@ -763,8 +763,7 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 8,
     textAlign: 'center',
-    letterSpacing: -0.5,
-    textTransform: 'lowercase',
+    letterSpacing: -0,
   },
   statusSubtitle: {
     fontSize: 15,
@@ -817,7 +816,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     textAlign: 'center',
-    textTransform: 'lowercase',
     letterSpacing: 0.5,
   },
   bottomHint: {

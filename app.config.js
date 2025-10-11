@@ -76,7 +76,7 @@ export default {
     // runtimeVersion: {
     //   policy: "appVersion"
     // },
-      runtimeVersion: "1.0.3",
+      runtimeVersion: "1.0.4",
 
 
     ios: {
