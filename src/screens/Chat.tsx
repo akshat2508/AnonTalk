@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,142 @@ interface Message {
   created_at: string;
 }
 
+// Memoized message component to prevent re-renders
+const MessageItem = memo<{ 
+  item: Message; 
+  index: number; 
+  currentUserId: string;
+  moodColors: any;
+  typingAnimValue: Animated.Value;
+}>( ({ item, index, currentUserId, moodColors, typingAnimValue }) => {
+  const isMyMessage = item.sender_id === currentUserId;
+  const isOptimistic = item.id.startsWith('temp-');
+  
+  const messageAnim = useRef(new Animated.Value(0)).current;
+  const messageSlide = useRef(new Animated.Value(isMyMessage ? 80 : -80)).current;
+  const messageScale = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(messageAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(messageSlide, {
+        toValue: 0,
+        friction: 9,
+        tension: 50,
+        useNativeDriver: true,
+      }),
+      Animated.spring(messageScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+  
+  return (
+    <Animated.View
+      style={{
+        width: '100%',
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        opacity: messageAnim,
+        transform: [
+          { translateX: messageSlide },
+          { scale: messageScale }
+        ],
+      }}
+    >
+      <View
+        style={{
+          maxWidth: '80%',
+          alignSelf: isMyMessage ? 'flex-end' : 'flex-start',
+          backgroundColor: isMyMessage ? moodColors.primary : '#1E1E1E',
+          borderRadius: 24,
+          padding: 16,
+          shadowColor: isMyMessage ? moodColors.primary : '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          elevation: 8,
+          borderWidth: 2,
+          borderColor: isMyMessage ? moodColors.accent + '40' : '#333',
+          opacity: isOptimistic ? 0.6 : 1,
+        }}
+      >
+        {/* Gradient overlay for messages */}
+        {isMyMessage && (
+          <View 
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: 22,
+              overflow: 'hidden',
+              opacity: 0.15,
+            }}
+          >
+            <View style={{
+              flex: 1,
+              backgroundColor: moodColors.secondary,
+            }} />
+          </View>
+        )}
+        
+        <Text style={{
+          fontSize: 16,
+          lineHeight: 22,
+          color: isMyMessage ? '#FFFFFF' : '#E0E0E0',
+          fontWeight: '500',
+        }}>
+          {item.content}
+        </Text>
+        
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 6,
+          gap: 6,
+        }}>
+          <Text style={{
+            fontSize: 11,
+            color: isMyMessage ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.5)',
+            fontWeight: '600',
+          }}>
+            {new Date(item.created_at).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </Text>
+          {isOptimistic && (
+            <Animated.Text 
+              style={{
+                fontSize: 12,
+                opacity: typingAnimValue
+              }}
+            >
+              ⌛
+            </Animated.Text>
+          )}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return prevProps.item.id === nextProps.item.id &&
+         prevProps.item.content === nextProps.item.content &&
+         prevProps.currentUserId === nextProps.currentUserId &&
+         prevProps.index === nextProps.index;
+});
+
 const Chat: React.FC<Props> = ({ navigation, route }) => {
   const { roomId, mood } = route.params;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -48,11 +184,12 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
   const [isConnected, setIsConnected] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [roomEnded, setRoomEnded] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   
   const flatListRef = useRef<FlatList>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   
-  // Animation values
+  // Animation values - kept as refs to prevent re-renders
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -90,7 +227,63 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
     );
   }, [roomId, navigation]);
 
-  // Enhanced animations
+  // Memoized mood emoji getter
+  const moodEmoji = useMemo(() => {
+    const moodEmojis: Record<string, string> = {
+      happy: '🔥',
+      sad: '💀',
+      horny: '🥵',
+      calm: '🌊',
+      anxious: '😵‍💫',
+      default: '👻',
+    };
+    return moodEmojis[mood.toLowerCase()] || moodEmojis.default;
+  }, [mood]);
+
+  // Memoized mood colors
+  const moodColors = useMemo(() => {
+    const colors: Record<string, { primary: string; secondary: string; accent: string; gradient: string[] }> = {
+      happy: { 
+        primary: '#FF3B81', 
+        secondary: '#FF6B35', 
+        accent: '#FFD23F',
+        gradient: ['#FF3B81', '#FF6B35', '#FFD23F']
+      },
+      sad: { 
+        primary: '#6B5CE7', 
+        secondary: '#4ECDC4', 
+        accent: '#3D5AFE',
+        gradient: ['#6B5CE7', '#4ECDC4']
+      },
+      horny: { 
+        primary: '#FF1744', 
+        secondary: '#F50057', 
+        accent: '#FF4081',
+        gradient: ['#FF1744', '#F50057', '#FF69B4']
+      },
+      calm: { 
+        primary: '#00D9FF', 
+        secondary: '#00E5A0', 
+        accent: '#7C4DFF',
+        gradient: ['#00D9FF', '#00E5A0']
+      },
+      anxious: { 
+        primary: '#9D00FF', 
+        secondary: '#FF00EA', 
+        accent: '#00F5FF',
+        gradient: ['#9D00FF', '#FF00EA']
+      },
+      default: { 
+        primary: '#1DB954', 
+        secondary: '#1ED760', 
+        accent: '#00E676',
+        gradient: ['#1DB954', '#1ED760']
+      },
+    };
+    return colors[mood.toLowerCase()] || colors.default;
+  }, [mood]);
+
+  // Initial animations - run once
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -146,12 +339,12 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
         }),
       ])
     ).start();
-  }, [fadeAnim, slideAnim, bgRotation, borderPulse, pulseAnim]);
+  }, []);
 
-  // Typing animation
+  // Separate typing animation effect
   useEffect(() => {
-    if (newMessage.trim()) {
-      Animated.loop(
+    if (isTyping) {
+      const animation = Animated.loop(
         Animated.sequence([
           Animated.timing(typingAnim, {
             toValue: 1,
@@ -164,9 +357,21 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      animation.start();
+      return () => animation.stop();
     }
-  }, [newMessage, typingAnim]);
+  }, [isTyping]);
+
+  // Handle text change without triggering animations
+  const handleTextChange = useCallback((text: string) => {
+    setNewMessage(text);
+    // Only update typing state if it actually changes
+    const shouldBeTyping = text.trim().length > 0;
+    if (shouldBeTyping !== isTyping) {
+      setIsTyping(shouldBeTyping);
+    }
+  }, [isTyping]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -339,6 +544,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
 
     setMessages(prev => [...prev, optimisticMessage]);
     setNewMessage('');
+    setIsTyping(false);
     
     try {
       console.log('📤 Sending message:', messageText);
@@ -415,189 +621,21 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
     );
   }, [roomId, navigation]);
 
-  const getMoodEmoji = useCallback((mood: string): string => {
-    const moodEmojis: Record<string, string> = {
-      happy: '🔥',
-      sad: '💀',
-      horny: '🥵',
-      calm: '🌊',
-      anxious: '😵‍💫',
-      default: '👻',
-    };
-    return moodEmojis[mood.toLowerCase()] || moodEmojis.default;
-  }, []);
-
-  const getMoodColors = useCallback((mood: string) => {
-    const colors: Record<string, { primary: string; secondary: string; accent: string; gradient: string[] }> = {
-      happy: { 
-        primary: '#FF3B81', 
-        secondary: '#FF6B35', 
-        accent: '#FFD23F',
-        gradient: ['#FF3B81', '#FF6B35', '#FFD23F']
-      },
-      sad: { 
-        primary: '#6B5CE7', 
-        secondary: '#4ECDC4', 
-        accent: '#3D5AFE',
-        gradient: ['#6B5CE7', '#4ECDC4']
-      },
-      horny: { 
-        primary: '#FF1744', 
-        secondary: '#F50057', 
-        accent: '#FF4081',
-        gradient: ['#FF1744', '#F50057', '#FF69B4']
-      },
-      calm: { 
-        primary: '#00D9FF', 
-        secondary: '#00E5A0', 
-        accent: '#7C4DFF',
-        gradient: ['#00D9FF', '#00E5A0']
-      },
-      anxious: { 
-        primary: '#9D00FF', 
-        secondary: '#FF00EA', 
-        accent: '#00F5FF',
-        gradient: ['#9D00FF', '#FF00EA']
-      },
-      default: { 
-        primary: '#1DB954', 
-        secondary: '#1ED760', 
-        accent: '#00E676',
-        gradient: ['#1DB954', '#1ED760']
-      },
-    };
-    return colors[mood.toLowerCase()] || colors.default;
-  }, []);
-
-  const moodColors = getMoodColors(mood);
-  const moodEmoji = getMoodEmoji(mood);
-
-  const MessageItem: React.FC<{ item: Message; index: number; currentUserId: string }> = ({ item, index, currentUserId }) => {
-    const isMyMessage = item.sender_id === currentUserId;
-    const isOptimistic = item.id.startsWith('temp-');
-    
-    const messageAnim = useRef(new Animated.Value(0)).current;
-    const messageSlide = useRef(new Animated.Value(isMyMessage ? 80 : -80)).current;
-    const messageScale = useRef(new Animated.Value(0.8)).current;
-
-    useEffect(() => {
-      Animated.parallel([
-        Animated.spring(messageAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-        Animated.spring(messageSlide, {
-          toValue: 0,
-          friction: 9,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.spring(messageScale, {
-          toValue: 1,
-          friction: 7,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, [index, messageAnim, messageSlide, messageScale]);
-    
-    return (
-      <Animated.View
-        style={{
-          width: '100%',
-          paddingHorizontal: 16,
-          paddingVertical: 6,
-          opacity: messageAnim,
-          transform: [
-            { translateX: messageSlide },
-            { scale: messageScale }
-          ],
-        }}
-      >
-        <View
-          style={{
-            maxWidth: '80%',
-            alignSelf: isMyMessage ? 'flex-end' : 'flex-start',
-            backgroundColor: isMyMessage ? moodColors.primary : '#1E1E1E',
-            borderRadius: 24,
-            padding: 16,
-            shadowColor: isMyMessage ? moodColors.primary : '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.4,
-            shadowRadius: 12,
-            elevation: 8,
-            borderWidth: 2,
-            borderColor: isMyMessage ? moodColors.accent + '40' : '#333',
-            opacity: isOptimistic ? 0.6 : 1,
-          }}
-        >
-          {/* Gradient overlay for messages */}
-          {isMyMessage && (
-            <View 
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: 22,
-                overflow: 'hidden',
-                opacity: 0.15,
-              }}
-            >
-              <View style={{
-                flex: 1,
-                backgroundColor: moodColors.secondary,
-              }} />
-            </View>
-          )}
-          
-          <Text style={{
-            fontSize: 16,
-            lineHeight: 22,
-            color: isMyMessage ? '#FFFFFF' : '#E0E0E0',
-            fontWeight: '500',
-          }}>
-            {item.content}
-          </Text>
-          
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginTop: 6,
-            gap: 6,
-          }}>
-            <Text style={{
-              fontSize: 11,
-              color: isMyMessage ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.5)',
-              fontWeight: '600',
-            }}>
-              {new Date(item.created_at).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </Text>
-            {isOptimistic && (
-              <Animated.Text 
-                style={{
-                  fontSize: 12,
-                  opacity: typingAnim
-                }}
-              >
-                ⌛
-              </Animated.Text>
-            )}
-          </View>
-        </View>
-      </Animated.View>
-    );
-  };
-
+  // Memoized render function
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
-    return <MessageItem item={item} index={index} currentUserId={currentUserId} />;
-  }, [currentUserId, moodColors, typingAnim]);
+    return (
+      <MessageItem 
+        item={item} 
+        index={index} 
+        currentUserId={currentUserId} 
+        moodColors={moodColors}
+        typingAnimValue={typingAnim}
+      />
+    );
+  }, [currentUserId, moodColors]);
+
+  // Memoized key extractor
+  const keyExtractor = useCallback((item: Message) => item.id, []);
 
   const bgRotationInterpolate = bgRotation.interpolate({
     inputRange: [0, 1],
@@ -760,7 +798,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
             <FlatList
               ref={flatListRef}
               data={isUserLoaded ? messages : []}
-              keyExtractor={(item) => item.id}
+              keyExtractor={keyExtractor}
               renderItem={renderMessage}
               style={{ flex: 1 }}
               contentContainerStyle={{
@@ -773,6 +811,11 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                   flatListRef.current?.scrollToEnd({ animated: false });
                 }, 100);
               }}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              updateCellsBatchingPeriod={50}
+              windowSize={10}
+              initialNumToRender={20}
             />
 
             {/* Enhanced Input */}
@@ -794,7 +837,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                   backgroundColor: '#1A1A1A',
                   borderRadius: 24,
                   borderWidth: 2,
-                  borderColor: newMessage.trim() ? moodColors.primary : '#2A2A2A',
+                  borderColor: isTyping ? moodColors.primary : '#2A2A2A',
                   overflow: 'hidden',
                 }}>
                   <TextInput
@@ -807,7 +850,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                       fontWeight: '500',
                     }}
                     value={newMessage}
-                    onChangeText={setNewMessage}
+                    onChangeText={handleTextChange}
                     placeholder={roomEnded ? "chat's dead..." : "type sum..."}
                     placeholderTextColor="#555"
                     multiline
@@ -816,7 +859,7 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                     onSubmitEditing={handleSendMessage}
                     blurOnSubmit={false}
                   />
-                  {newMessage.trim() && !roomEnded && (
+                  {isTyping && !roomEnded && (
                     <Animated.View style={{
                       position: 'absolute',
                       right: 16,
@@ -829,29 +872,29 @@ const Chat: React.FC<Props> = ({ navigation, route }) => {
                 </View>
                 
                 <Animated.View style={{
-                  transform: [{ scale: newMessage.trim() && !roomEnded ? borderPulse : 1 }],
+                  transform: [{ scale: isTyping && !roomEnded ? borderPulse : 1 }],
                 }}>
                   <TouchableOpacity
                     style={{
                       width: 54,
                       height: 54,
                       borderRadius: 27,
-                      backgroundColor: (!isConnected || !newMessage.trim() || roomEnded) 
+                      backgroundColor: (!isConnected || !isTyping || roomEnded) 
                         ? '#2A2A2A' 
                         : moodColors.primary,
                       alignItems: 'center',
                       justifyContent: 'center',
                       shadowColor: moodColors.primary,
                       shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: newMessage.trim() ? 0.5 : 0,
+                      shadowOpacity: isTyping ? 0.5 : 0,
                       shadowRadius: 12,
-                      elevation: newMessage.trim() ? 8 : 0,
+                      elevation: isTyping ? 8 : 0,
                     }}
                     onPress={handleSendMessage}
-                    disabled={!isConnected || !newMessage.trim() || roomEnded}
+                    disabled={!isConnected || !isTyping || roomEnded}
                   >
                     <Text style={{ fontSize: 24 }}>
-                      {newMessage.trim() && !roomEnded ? '⚡' : '💬'}
+                      {isTyping && !roomEnded ? '⚡' : '💬'}
                     </Text>
                   </TouchableOpacity>
                 </Animated.View>

@@ -58,7 +58,7 @@ export default {
   expo: {
     name: "anontalk",
     slug: "anontalk",
-    version: "1.0.4",
+    version: "1.0.5",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -76,7 +76,7 @@ export default {
     // runtimeVersion: {
     //   policy: "appVersion"
     // },
-      runtimeVersion: "1.0.4",
+      runtimeVersion: "1.0.5",
 
 
     ios: {
