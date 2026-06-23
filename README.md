@@ -150,5 +150,5 @@ Once built, your `.apk` or `.aab` will be available on your EAS dashboard.
 🔗 [GitHub](https://github.com/akshat2508) • [LinkedIn](https://linkedin.com/in/akshat-paul)
 
 > “AnonTalk — where conversations are free from judgment, and connection is real.”
-
+> "Ongoing Security patches "
 ---
